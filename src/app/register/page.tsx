@@ -63,7 +63,7 @@ export default function RegisterPage() {
           console.error('Ошибка создания профиля:', profileError)
           setError('Аккаунт создан, но произошла ошибка при создании профиля')
         } else {
-          router.push('/login?message=Регистрация успешна! Проверьте email для подтверждения.')
+          router.push('/login?message=Вы прошли регистрацию. Теперь авторизуйтесь.')
         }
       }
     } catch (err) {

@@ -2,14 +2,17 @@
 
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const message = searchParams.get('message')
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -31,7 +34,8 @@ export default function LoginPage() {
       if (error) {
         setError(error.message)
       } else {
-        router.push('/dashboard')
+        setSuccessMessage('Вы успешно вошли.')
+        setTimeout(() => router.push('/dashboard'), 2000)
       }
     } catch (err) {
       setError('Произошла ошибка при входе')
@@ -59,6 +63,7 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              autoComplete="email"
               className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="your@email.com"
             />
@@ -74,14 +79,27 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              autoComplete="current-password"
               className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="••••••••"
             />
           </div>
 
+          {message && (
+            <div className="bg-blue-900 border border-blue-700 text-blue-200 px-4 py-3 rounded-md">
+              {message}
+            </div>
+          )}
+
           {error && (
             <div className="bg-red-900 border border-red-700 text-red-200 px-4 py-3 rounded-md">
               {error}
+            </div>
+          )}
+
+          {successMessage && (
+            <div className="bg-green-900 border border-green-700 text-green-200 px-4 py-3 rounded-md">
+              {successMessage}
             </div>
           )}
 
