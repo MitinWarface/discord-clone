@@ -1,11 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, usePathname } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
 export default function ChannelsMePage() {
   const { slug } = useParams();
+  const pathname = usePathname();
   const [friends, setFriends] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState('online');
 
@@ -58,12 +59,12 @@ export default function ChannelsMePage() {
         </div>
         <div className="flex-1 overflow-y-auto">
           <div className="p-2 space-y-1">
-            <div className={`flex items-center p-2 rounded cursor-pointer ${slug === '@me' ? 'bg-gray-700 text-white' : 'hover:bg-gray-700'}`}>
-              <svg className={`w-6 h-6 mr-3 ${slug === '@me' ? 'text-white' : 'text-gray-400'}`} fill="currentColor" viewBox="0 0 24 24">
+            <div className={`flex items-center p-2 rounded cursor-pointer ${pathname === '/channels/@me' ? 'bg-gray-700 text-white' : 'hover:bg-gray-700'}`}>
+              <svg className={`w-6 h-6 mr-3 ${pathname === '/channels/@me' ? 'text-white' : 'text-gray-400'}`} fill="currentColor" viewBox="0 0 24 24">
                 <path d="M13 10a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/>
                 <path d="M3 5v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2H5c-1.11 0-2 .9-2 2Zm12 10c0 1.66-1.34 3-3 3s-3-1.34-3-3 1.34-3 3-3 3 1.34 3 3Zm-9 4c0-.22.03-.42.06-.63C5.74 16.86 7.87 15 10 15s4.26 1.86 4.94 3.37c.03.2.06.41.06.63H6Zm8-7c0-.55-.45-1-1-1s-1 .45-1 1 .45 1 1 1 1-.45 1-1Z"/>
               </svg>
-              <span className={slug === '@me' ? 'text-white' : 'text-gray-300'}>Друзья</span>
+              <span className={pathname === '/channels/@me' ? 'text-white' : 'text-gray-300'}>Друзья</span>
             </div>
             <div className="flex items-center p-2 rounded hover:bg-gray-700 cursor-pointer">
               <svg className="w-6 h-6 text-gray-400 mr-3" fill="currentColor" viewBox="0 0 24 24">
