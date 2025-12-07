@@ -3,8 +3,19 @@
 import { useEffect, useState } from 'react';
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { canManageChannels, canSendMessages, canManageRoles, canManageServer, canKickMembers, canBanMembers } from '@/lib/permissions';
+import { useServers } from '@/lib/ServerContext';
 import toast from 'react-hot-toast';
 import ReactMarkdown from 'react-markdown';
+import RoleManager from '@/components/RoleManager';
+import InviteManager from '@/components/InviteManager';
+import ModerationPanel from '@/components/ModerationPanel';
+import MessageSearch from '@/components/MessageSearch';
+import ChannelSettings from '@/components/ChannelSettings';
+import PinnedMessagesModal from '@/components/PinnedMessagesModal';
+import FileUpload from '@/components/FileUpload';
+import MentionInput from '@/components/MentionInput';
+import NotificationPanel from '@/components/NotificationPanel';
 
 interface ChannelItem {
   id: string;
@@ -15,7 +26,110 @@ interface ChannelItem {
   category_id?: string | null;
   created_at?: string;
   updated_at?: string;
-  channels?: any[];
+  channels?: ChannelItem[];
+}
+
+interface UserProfile {
+  id: string;
+  username: string;
+  username_base: string;
+  discriminator: number;
+  display_name: string;
+  avatar_url: string | null;
+  avatar?: string | null; // For search results
+  created_at: string;
+  updated_at: string;
+}
+
+interface Friend {
+  id: string;
+  user_id: string;
+  friend_id: string;
+  status: string;
+  created_at: string;
+  friend_profile: {
+    id: string;
+    username: string;
+    display_name: string;
+    avatar_url: string | null;
+  };
+}
+
+interface Server {
+  id: string;
+  name: string;
+  owner_id: string;
+  icon_url: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface Channel {
+  id: string;
+  name: string;
+  type: string;
+  position: number;
+  server_id: string;
+  category_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface DmChannel {
+  id: string;
+  name: string;
+  avatar: string | null;
+  username: string;
+  created_at: string;
+}
+
+interface Message {
+  id: string;
+  channel_id: string;
+  user_id: string;
+  content: string;
+  message_type: string;
+  created_at: string;
+  updated_at: string;
+  profiles?: {
+    id: string;
+    username: string;
+    display_name: string;
+    avatar_url: string | null;
+  } | null;
+  file_attachments?: FileAttachment[];
+  user_profile?: {
+    username: string;
+    display_name: string;
+    avatar_url: string | null;
+  };
+  mentions?: any[]; // Will fix later
+}
+
+interface FileAttachment {
+  id: string;
+  message_id: string;
+  filename: string;
+  original_name: string;
+  file_size: number;
+  mime_type: string;
+  file_path: string;
+  uploaded_by: string;
+  created_at: string;
+}
+
+interface Reaction {
+  id: string;
+  message_id: string;
+  user_id: string;
+  emoji: string;
+  created_at: string;
+}
+
+interface UserStatus {
+  user_id: string;
+  status: string;
+  last_seen?: string;
 }
 
 export default function ChannelsMePage() {
@@ -23,35 +137,89 @@ export default function ChannelsMePage() {
   const decodedSlug = typeof slug === 'string' ? decodeURIComponent(slug) : '';
   const pathname = usePathname();
   const router = useRouter();
-  const [friends, setFriends] = useState<any[]>([]);
+  const [friends, setFriends] = useState<Friend[]>([]);
   const [activeTab, setActiveTab] = useState('online');
-  const [userProfile, setUserProfile] = useState<any>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [showAddServer, setShowAddServer] = useState(false);
   const [showCreateOwn, setShowCreateOwn] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
   const [showJoinServer, setShowJoinServer] = useState(false);
   const [showCreateChannel, setShowCreateChannel] = useState(false);
   const [showServerSettings, setShowServerSettings] = useState(false);
+  const [showRoleManager, setShowRoleManager] = useState(false);
+  const [showInviteManager, setShowInviteManager] = useState(false);
+  const [showModerationPanel, setShowModerationPanel] = useState(false);
+  const [showMessageSearch, setShowMessageSearch] = useState(false);
+  const [showChannelSettings, setShowChannelSettings] = useState(false);
+  const [showPinnedMessages, setShowPinnedMessages] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [showFileUpload, setShowFileUpload] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
   const [serverName, setServerName] = useState('');
   const [channelName, setChannelName] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
-  const [serverCategories, setServerCategories] = useState<any[]>([]);
+  const [serverCategories, setServerCategories] = useState<ChannelItem[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
   const [joinServerName, setJoinServerName] = useState('');
   const [editServerName, setEditServerName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchResults, setSearchResults] = useState<UserProfile[]>([]);
   const [searching, setSearching] = useState(false);
-  const [servers, setServers] = useState<any[]>([]);
+  const { servers, refreshServers } = useServers();
   const [serverChannels, setServerChannels] = useState<ChannelItem[]>([]);
-  const [currentServer, setCurrentServer] = useState<any>(null);
-  const [currentChannel, setCurrentChannel] = useState<any>(null);
-  const [messages, setMessages] = useState<any[]>([]);
+  const [dmChannels, setDmChannels] = useState<DmChannel[]>([]);
+  const [currentServer, setCurrentServer] = useState<Server | null>(null);
+  const [currentChannel, setCurrentChannel] = useState<Channel | null>(null);
+  const [currentDmChannel, setCurrentDmChannel] = useState<DmChannel | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [showEmojiPicker, setShowEmojiPicker] = useState<number | null>(null);
-  const [reactions, setReactions] = useState<{[messageId: number]: any[]}>({});
+  const [showEmojiPicker, setShowEmojiPicker] = useState<string | null>(null);
+  const [reactions, setReactions] = useState<{[messageId: string]: Reaction[]}>({});
+  const [userStatuses, setUserStatuses] = useState<{[userId: string]: UserStatus}>({});
+
+  // Update user presence on mount and cleanup
+  useEffect(() => {
+    const updatePresence = async (status: string) => {
+      try {
+        const { data: { user } } = await supabase!.auth.getUser();
+        if (user) {
+          await supabase!.rpc('update_user_presence', {
+            p_user_id: user.id,
+            p_status: status
+          });
+        }
+      } catch (error) {
+        console.error('Error updating presence:', error);
+      }
+    };
+
+    // Set online when component mounts
+    updatePresence('online');
+
+    // Set offline when component unmounts or page visibility changes
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        updatePresence('idle');
+      } else {
+        updatePresence('online');
+      }
+    };
+
+    const handleBeforeUnload = () => {
+      updatePresence('offline');
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      updatePresence('offline');
+    };
+  }, []);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -114,7 +282,15 @@ export default function ChannelsMePage() {
       const getFriends = async () => {
         const { data, error } = await supabase!
           .from('friends')
-          .select('*')
+          .select(`
+            *,
+            friend_profile:friend_id (
+              id,
+              username,
+              display_name,
+              avatar_url
+            )
+          `)
           .eq('user_id', user.id)
           .eq('status', 'accepted');
 
@@ -122,55 +298,95 @@ export default function ChannelsMePage() {
         else setFriends(data || []);
       };
 
-      const getServers = async () => {
+
+      const getDmChannels = async () => {
         try {
-          // First get user's server memberships
-          const { data: memberships, error: membershipError } = await supabase!
-            .from('server_members')
-            .select('server_id')
-            .eq('user_id', user.id);
-
-          if (membershipError) {
-            console.error('Error fetching server memberships:', membershipError);
-            return;
-          }
-
-          if (!memberships || memberships.length === 0) {
-            setServers([]);
-            return;
-          }
-
-          // Then get server details with member roles
-          const serverIds = memberships.map(m => m.server_id);
-          const { data: serversData, error: serversError } = await supabase!
-            .from('servers')
+          const { data, error } = await supabase!
+            .from('dm_channel_members')
             .select(`
-              id,
-              name,
-              icon_url,
-              server_members!inner (
-                roles (
-                  id,
-                  name,
-                  color,
-                  permissions
+              dm_channel_id,
+              dm_channels!inner (
+                id,
+                created_at,
+                dm_channel_members!inner (
+                  user_id,
+                  profiles:user_id (
+                    username,
+                    display_name,
+                    avatar_url
+                  )
                 )
               )
             `)
-            .in('id', serverIds);
+            .eq('user_id', user.id);
 
-          if (serversError) {
-            console.error('Error fetching servers:', serversError);
+          if (error) {
+            console.error('Error fetching DM channels:', error);
           } else {
-            setServers(serversData || []);
+            // Process DM channels to get other participants
+            const processedDmChannels = (data || []).map((item: any) => {
+              const channel = item.dm_channels;
+              const otherMembers = channel.dm_channel_members.filter((m: any) => m.user_id !== user.id);
+              const otherUser = otherMembers[0]?.profiles;
+
+              return {
+                id: channel.id,
+                name: otherUser?.display_name || otherUser?.username || 'Unknown User',
+                avatar: otherUser?.avatar_url,
+                username: otherUser?.username,
+                created_at: channel.created_at
+              };
+            });
+
+            setDmChannels(processedDmChannels);
           }
         } catch (error) {
-          console.error('Error in getServers:', error);
+          console.error('Error in getDmChannels:', error);
+        }
+      };
+
+      const getUserStatuses = async () => {
+        const { data, error } = await supabase!
+          .from('user_presence')
+          .select('*');
+
+        if (error) console.error('Error fetching user statuses:', error);
+        else {
+          const statusMap: {[userId: string]: any} = {};
+          data?.forEach(status => {
+            statusMap[status.user_id] = status;
+          });
+          setUserStatuses(statusMap);
         }
       };
 
       getFriends();
-      getServers();
+      getDmChannels();
+      getUserStatuses();
+
+      // Subscribe to user presence changes
+      const presenceChannel = supabase!
+        .channel('user_presence')
+        .on('postgres_changes', {
+          event: '*',
+          schema: 'public',
+          table: 'user_presence'
+        }, (payload) => {
+          setUserStatuses(prev => {
+            const newStatuses = { ...prev };
+            if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+              newStatuses[payload.new.user_id] = {
+                user_id: payload.new.user_id,
+                status: payload.new.status,
+                last_seen: payload.new.last_seen
+              };
+            } else if (payload.eventType === 'DELETE') {
+              delete newStatuses[payload.old.user_id];
+            }
+            return newStatuses;
+          });
+        })
+        .subscribe();
 
       // If slug is a server ID, load server and channels
       if (decodedSlug !== 'me' && decodedSlug !== '@me') {
@@ -271,7 +487,7 @@ export default function ChannelsMePage() {
 
   // Load messages and reactions when channel changes
   useEffect(() => {
-    if (!currentChannel) return;
+    if (!currentChannel && !currentDmChannel) return;
 
     const setupRealtime = async () => {
       // Check if user is authenticated
@@ -287,11 +503,14 @@ export default function ChannelsMePage() {
       setLoadingMore(false);
 
     const loadMessages = async () => {
+      const channelId = currentChannel?.id || currentDmChannel?.id;
+      if (!channelId) return;
+
       // First load messages without profiles
       const { data: messagesData, error: messagesError } = await supabase!
         .from('messages')
         .select('*')
-        .eq('channel_id', currentChannel.id)
+        .eq('channel_id', channelId)
         .order('created_at', { ascending: true })
         .limit(50);
 
@@ -300,9 +519,12 @@ export default function ChannelsMePage() {
         return;
       }
 
-      // Then load profiles for the users
+      // Then load profiles and attachments for the users
       if (messagesData && messagesData.length > 0) {
         const userIds = [...new Set(messagesData.map(m => m.user_id))];
+        const messageIds = messagesData.map(m => m.id);
+
+        // Load profiles
         const { data: profilesData, error: profilesError } = await supabase!
           .from('profiles')
           .select('id, username, display_name, avatar_url')
@@ -312,10 +534,56 @@ export default function ChannelsMePage() {
           console.error('Error loading profiles:', profilesError);
         }
 
-        // Combine messages with profiles
+        // Load file attachments
+        const { data: attachmentsData, error: attachmentsError } = await supabase!
+          .from('file_attachments')
+          .select('*')
+          .in('message_id', messageIds);
+
+        if (attachmentsError) {
+          console.error('Error loading attachments:', attachmentsError);
+        }
+
+        // Load mentions
+        const { data: mentionsData, error: mentionsError } = await supabase!
+          .from('mentions')
+          .select(`
+            *,
+            mentioned_user:mentioned_user_id (
+              id,
+              username,
+              display_name
+            )
+          `)
+          .in('message_id', messageIds);
+
+        if (mentionsError) {
+          console.error('Error loading mentions:', mentionsError);
+        }
+
+        // Group attachments by message_id
+        const attachmentsMap: {[messageId: string]: any[]} = {};
+        attachmentsData?.forEach(attachment => {
+          if (!attachmentsMap[attachment.message_id]) {
+            attachmentsMap[attachment.message_id] = [];
+          }
+          attachmentsMap[attachment.message_id].push(attachment);
+        });
+
+        // Group mentions by message_id
+        const mentionsMap: {[messageId: string]: any[]} = {};
+        mentionsData?.forEach(mention => {
+          if (!mentionsMap[mention.message_id]) {
+            mentionsMap[mention.message_id] = [];
+          }
+          mentionsMap[mention.message_id].push(mention);
+        });
+
+        // Combine messages with profiles and attachments
         const messagesWithProfiles = messagesData.map(message => ({
           ...message,
-          profiles: profilesData?.find(p => p.id === message.user_id) || null
+          profiles: profilesData?.find(p => p.id === message.user_id) || null,
+          file_attachments: attachmentsMap[message.id] || []
         }));
 
         setMessages(messagesWithProfiles);
@@ -324,7 +592,6 @@ export default function ChannelsMePage() {
         }
 
         // Load reactions for these messages
-        const messageIds = messagesData.map(m => m.id);
         const { data: reactionsData, error: reactionsError } = await supabase!
           .from('reactions')
           .select('*')
@@ -349,18 +616,19 @@ export default function ChannelsMePage() {
     loadMessages();
 
     // Subscribe to new messages
+    const channelId = currentChannel?.id || currentDmChannel?.id;
     const messagesChannel = supabase!
-      .channel(`messages:${currentChannel.id}`)
+      .channel(`messages:${channelId}`)
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
         table: 'messages',
-        filter: `channel_id=eq.${currentChannel.id}`
+        filter: `channel_id=eq.${channelId}`
       }, async (payload) => {
         console.log('New message received:', payload.new);
 
         // Only process messages for current channel
-        if (payload.new.channel_id !== currentChannel.id) {
+        if (payload.new.channel_id !== channelId) {
           return;
         }
 
@@ -371,9 +639,17 @@ export default function ChannelsMePage() {
           .eq('id', payload.new.user_id)
           .single();
 
-        const messageWithProfile = {
-          ...payload.new,
-          user_profile: profile
+        const messageWithProfile: Message = {
+          id: payload.new.id,
+          channel_id: payload.new.channel_id,
+          user_id: payload.new.user_id,
+          content: payload.new.content,
+          message_type: payload.new.message_type,
+          created_at: payload.new.created_at,
+          updated_at: payload.new.updated_at,
+          profiles: profile ? { ...profile, id: payload.new.user_id } : null,
+          file_attachments: [],
+          mentions: []
         };
 
         setMessages(prev => {
@@ -391,6 +667,7 @@ export default function ChannelsMePage() {
       });
 
     // Subscribe to reactions
+    if (!currentChannel?.id) return;
     const reactionsChannel = supabase!
       .channel(`reactions:${currentChannel.id}`)
       .on('postgres_changes', {
@@ -410,7 +687,7 @@ export default function ChannelsMePage() {
           .eq('id', messageId)
           .maybeSingle();
 
-        if (!message || message.channel_id !== currentChannel.id) {
+        if (!message || message.channel_id !== channelId) {
           return;
         }
 
@@ -419,7 +696,13 @@ export default function ChannelsMePage() {
           const newReactions = { ...prev };
 
           if (payload.eventType === 'INSERT') {
-            const reaction = payload.new;
+            const reaction: Reaction = {
+              id: payload.new.id,
+              message_id: payload.new.message_id,
+              user_id: payload.new.user_id,
+              emoji: payload.new.emoji,
+              created_at: payload.new.created_at
+            };
             if (!newReactions[reaction.message_id]) {
               newReactions[reaction.message_id] = [];
             }
@@ -447,28 +730,14 @@ export default function ChannelsMePage() {
       setupRealtime();
 
       return () => {
-        console.log('Cleaning up subscriptions for channel:', currentChannel.id);
+        console.log('Cleaning up subscriptions for channel:', channelId);
         messagesChannel.unsubscribe();
         reactionsChannel.unsubscribe();
       };
     };
 
     setupRealtime();
-  }, [currentChannel]);
-
-  // Debounced search
-  useEffect(() => {
-    if (!searchQuery.trim()) {
-      setSearchResults([]);
-      return;
-    }
-
-    const timeoutId = setTimeout(() => {
-      searchUsers(searchQuery);
-    }, 300); // 300ms delay
-
-    return () => clearTimeout(timeoutId);
-  }, [searchQuery]);
+  }, [currentChannel, currentDmChannel]);
 
   const filteredFriends = friends.filter(friend => {
     if (activeTab === 'online') return true; // Assume all are online for now
@@ -498,7 +767,7 @@ export default function ChannelsMePage() {
         setSearchResults([]);
       } else {
         // Filter out current user
-        const filteredResults = (data || []).filter((u: any) => u.id !== user.id);
+        const filteredResults = (data || []).filter((u: UserProfile) => u.id !== user.id);
         setSearchResults(filteredResults);
       }
     } catch (error) {
@@ -507,6 +776,20 @@ export default function ChannelsMePage() {
     }
     setSearching(false);
   };
+
+  // Debounced search
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      searchUsers(searchQuery);
+    }, 300); // 300ms delay
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery]);
 
   const sendFriendRequest = async (userId: string) => {
     try {
@@ -544,6 +827,17 @@ export default function ChannelsMePage() {
         console.error('Error sending friend request:', error);
         toast.error('Ошибка при отправке запроса');
       } else {
+        // Create notification for friend request
+        await supabase!.rpc('create_notification', {
+          p_user_id: userId,
+          p_type: 'friend_request',
+          p_title: `${userProfile?.display_name || userProfile?.username} отправил запрос в друзья`,
+          p_content: null,
+          p_data: {
+            from_user_id: user.id
+          }
+        });
+
         toast.success('Запрос в друзья отправлен!');
         setSearchQuery('');
         setSearchResults([]);
@@ -554,31 +848,214 @@ export default function ChannelsMePage() {
     }
   };
 
+  const createDMChannel = async (userId: string) => {
+    try {
+      const { data: { user } } = await supabase!.auth.getUser();
+      if (!user) return;
+
+      if (user.id === userId) {
+        toast.error('Вы не можете создать DM с самим собой!');
+        return;
+      }
+
+      // Create DM channel using RPC function
+      const { data: dmChannelId, error } = await supabase!
+        .rpc('create_dm_channel', {
+          p_user1_id: user.id,
+          p_user2_id: userId
+        });
+
+      if (error) {
+        console.error('Error creating DM channel:', error);
+        toast.error('Ошибка при создании DM канала');
+        return;
+      }
+
+      // Refresh DM channels
+      const { data, error: dmError } = await supabase!
+        .from('dm_channel_members')
+        .select(`
+          dm_channel_id,
+          dm_channels!inner (
+            id,
+            created_at,
+            dm_channel_members!inner (
+              user_id,
+              profiles:user_id (
+                username,
+                display_name,
+                avatar_url
+              )
+            )
+          )
+        `)
+        .eq('user_id', user.id);
+
+      if (!dmError && data) {
+        const processedDmChannels = data.map((item: any) => {
+          const channel = item.dm_channels;
+          const otherMembers = channel.dm_channel_members.filter((m: any) => m.user_id !== user.id);
+          const otherUser = otherMembers[0]?.profiles;
+
+          return {
+            id: channel.id,
+            name: otherUser?.display_name || otherUser?.username || 'Unknown User',
+            avatar: otherUser?.avatar_url,
+            username: otherUser?.username,
+            created_at: channel.created_at
+          };
+        });
+
+        setDmChannels(processedDmChannels);
+      }
+
+      toast.success('DM канал создан!');
+      setSearchQuery('');
+      setSearchResults([]);
+
+      // Navigate to the new DM channel
+      router.push(`/channels/${dmChannelId}`);
+    } catch (error) {
+      console.error('Error:', error);
+      toast.error('Ошибка при создании DM канала');
+    }
+  };
+
   const sendMessage = async () => {
-    if (!newMessage.trim() || !currentChannel) return;
+    if ((!newMessage.trim() && selectedFiles.length === 0) || (!currentChannel && !currentDmChannel)) return;
 
     try {
       const { data: { user } } = await supabase!.auth.getUser();
       if (!user) return;
 
-      const { error } = await supabase!
+      const channelId = currentChannel?.id || currentDmChannel?.id;
+
+      // For server channels, check permissions
+      if (currentChannel && currentServer) {
+        const canSend = await canSendMessages(user.id, currentServer.id);
+        if (!canSend) {
+          toast.error('У вас нет прав на отправку сообщений');
+          return;
+        }
+      }
+
+      // Create message
+      const { data: message, error: messageError } = await supabase!
         .from('messages')
         .insert({
-          channel_id: currentChannel.id,
+          channel_id: channelId,
           user_id: user.id,
-          content: newMessage.trim(),
-          message_type: 'text'
-        });
+          content: newMessage.trim() || (selectedFiles.length > 0 ? 'Файлы' : ''),
+          message_type: selectedFiles.length > 0 ? 'file' : 'text'
+        })
+        .select()
+        .single();
 
-      if (error) {
-        console.error('Error sending message:', error);
+      if (messageError) {
+        console.error('Error sending message:', messageError);
         toast.error('Ошибка при отправке сообщения');
-      } else {
-        setNewMessage('');
+        return;
       }
+
+      // Upload files if any
+      if (selectedFiles.length > 0) {
+        for (const file of selectedFiles) {
+          try {
+            // Generate unique filename
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+
+            // Upload to Supabase Storage
+            const { data: uploadData, error: uploadError } = await supabase!.storage
+              .from('file-attachments')
+              .upload(fileName, file);
+
+            if (uploadError) {
+              console.error('Error uploading file:', uploadError);
+              toast.error(`Ошибка при загрузке файла ${file.name}`);
+              continue;
+            }
+
+            // Save file metadata
+            const { error: attachmentError } = await supabase!
+              .from('file_attachments')
+              .insert({
+                message_id: message.id,
+                filename: fileName,
+                original_name: file.name,
+                file_size: file.size,
+                mime_type: file.type,
+                file_path: uploadData.path,
+                uploaded_by: user.id
+              });
+
+            if (attachmentError) {
+              console.error('Error saving attachment:', attachmentError);
+              toast.error(`Ошибка при сохранении файла ${file.name}`);
+            }
+          } catch (error) {
+            console.error('Error processing file:', error);
+            toast.error(`Ошибка при обработке файла ${file.name}`);
+          }
+        }
+      }
+
+      // Process mentions
+      const mentionRegex = /@(\w+)/g;
+      const mentions = [];
+      let match;
+
+      while ((match = mentionRegex.exec(newMessage)) !== null) {
+        const username = match[1];
+        // Find user by username
+        const { data: mentionedUser } = await supabase!
+          .from('profiles')
+          .select('id')
+          .eq('username', username)
+          .maybeSingle();
+
+        if (mentionedUser) {
+          mentions.push({
+            message_id: message.id,
+            mentioned_user_id: mentionedUser.id,
+            mentioned_by: user.id
+          });
+        }
+      }
+
+      // Insert mentions and create notifications
+      if (mentions.length > 0) {
+        const { error: mentionError } = await supabase!
+          .from('mentions')
+          .insert(mentions);
+
+        if (mentionError) {
+          console.error('Error creating mentions:', mentionError);
+        } else {
+          // Create notifications for mentions
+          for (const mention of mentions) {
+            await supabase!.rpc('create_notification', {
+              p_user_id: mention.mentioned_user_id,
+              p_type: 'mention',
+              p_title: `${userProfile?.display_name || userProfile?.username} упомянул вас`,
+              p_content: newMessage.trim(),
+              p_data: {
+                message_id: message.id,
+                channel_id: channelId,
+                server_id: currentServer?.id
+              }
+            });
+          }
+        }
+      }
+
+      // Clear form
+      setNewMessage('');
+      setSelectedFiles([]);
+      setShowFileUpload(false);
     } catch (error) {
       console.error('Error:', error);
-      alert('Ошибка при отправке сообщения');
+      toast.error('Ошибка при отправке сообщения');
     }
   };
 
@@ -586,7 +1063,43 @@ export default function ChannelsMePage() {
     setCurrentChannel(channel);
   };
 
-  const toggleReaction = async (messageId: number, emoji: string) => {
+  const jumpToMessage = async (channelId: string, messageId: string) => {
+    // If it's a different channel, switch to it first
+    if (currentChannel?.id !== channelId) {
+      const { data: channel } = await supabase!
+        .from('channels')
+        .select('*')
+        .eq('id', channelId)
+        .single();
+
+      if (channel) {
+        setCurrentChannel(channel);
+        // Wait a bit for the channel to load, then scroll to message
+        setTimeout(() => {
+          const messageElement = document.getElementById(`message-${messageId}`);
+          if (messageElement) {
+            messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            messageElement.classList.add('bg-yellow-900', 'bg-opacity-50');
+            setTimeout(() => {
+              messageElement.classList.remove('bg-yellow-900', 'bg-opacity-50');
+            }, 2000);
+          }
+        }, 1000);
+      }
+    } else {
+      // Same channel, just scroll to message
+      const messageElement = document.getElementById(`message-${messageId}`);
+      if (messageElement) {
+        messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        messageElement.classList.add('bg-yellow-900', 'bg-opacity-50');
+        setTimeout(() => {
+          messageElement.classList.remove('bg-yellow-900', 'bg-opacity-50');
+        }, 2000);
+      }
+    }
+  };
+
+  const toggleReaction = async (messageId: string, emoji: string) => {
     try {
       const { data: { user } } = await supabase!.auth.getUser();
       if (!user) return;
@@ -625,7 +1138,7 @@ export default function ChannelsMePage() {
     }
   };
 
-  const addReaction = (messageId: number, emoji: string) => {
+  const addReaction = (messageId: string, emoji: string) => {
     toggleReaction(messageId, emoji);
     setShowEmojiPicker(null);
   };
@@ -653,8 +1166,11 @@ export default function ChannelsMePage() {
         console.error('Error loading more messages:', messagesError);
       } else {
         if (messagesData && messagesData.length > 0) {
-          // Load profiles for new messages
+          // Load profiles and attachments for new messages
           const userIds = [...new Set(messagesData.map(m => m.user_id))];
+          const messageIds = messagesData.map(m => m.id);
+
+          // Load profiles
           const { data: profilesData, error: profilesError } = await supabase!
             .from('profiles')
             .select('id, username, display_name, avatar_url')
@@ -664,10 +1180,57 @@ export default function ChannelsMePage() {
             console.error('Error loading profiles for more messages:', profilesError);
           }
 
-          // Combine messages with profiles
+          // Load file attachments
+          const { data: attachmentsData, error: attachmentsError } = await supabase!
+            .from('file_attachments')
+            .select('*')
+            .in('message_id', messageIds);
+
+          if (attachmentsError) {
+            console.error('Error loading attachments for more messages:', attachmentsError);
+          }
+
+          // Load mentions
+          const { data: mentionsData, error: mentionsError } = await supabase!
+            .from('mentions')
+            .select(`
+              *,
+              mentioned_user:mentioned_user_id (
+                id,
+                username,
+                display_name
+              )
+            `)
+            .in('message_id', messageIds);
+
+          if (mentionsError) {
+            console.error('Error loading mentions for more messages:', mentionsError);
+          }
+
+          // Group attachments by message_id
+          const attachmentsMap: {[messageId: string]: any[]} = {};
+          attachmentsData?.forEach(attachment => {
+            if (!attachmentsMap[attachment.message_id]) {
+              attachmentsMap[attachment.message_id] = [];
+            }
+            attachmentsMap[attachment.message_id].push(attachment);
+          });
+
+          // Group mentions by message_id
+          const mentionsMap: {[messageId: string]: any[]} = {};
+          mentionsData?.forEach(mention => {
+            if (!mentionsMap[mention.message_id]) {
+              mentionsMap[mention.message_id] = [];
+            }
+            mentionsMap[mention.message_id].push(mention);
+          });
+
+          // Combine messages with profiles, attachments and mentions
           const messagesWithProfiles = messagesData.map(message => ({
             ...message,
-            profiles: profilesData?.find(p => p.id === message.user_id) || null
+            profiles: profilesData?.find(p => p.id === message.user_id) || null,
+            file_attachments: attachmentsMap[message.id] || [],
+            mentions: mentionsMap[message.id] || []
           }));
 
           setMessages(prev => [...messagesWithProfiles.reverse(), ...prev]);
@@ -817,6 +1380,35 @@ export default function ChannelsMePage() {
                   </svg>
                   <span className="text-gray-300">Задания</span>
                 </div>
+
+                {/* DM Channels */}
+                {dmChannels.length > 0 && (
+                  <>
+                    <div className="px-2 py-1 text-xs font-semibold text-gray-400 uppercase tracking-wider mt-4">
+                      Прямые сообщения
+                    </div>
+                    {dmChannels.map((dmChannel) => (
+                      <div
+                        key={dmChannel.id}
+                        className={`flex items-center p-2 rounded cursor-pointer ${
+                          currentDmChannel?.id === dmChannel.id ? 'bg-gray-700 text-white' : 'hover:bg-gray-700 text-gray-300'
+                        }`}
+                        onClick={() => {
+                          setCurrentDmChannel(dmChannel);
+                          setCurrentChannel(null);
+                          setCurrentServer(null);
+                        }}
+                      >
+                        <img
+                          src={dmChannel.avatar || '/assets/66e90ab9506850e8a5dd48e3_Discrod_MainLogo.svg'}
+                          alt={dmChannel.name}
+                          className="w-6 h-6 rounded-full mr-3"
+                        />
+                        <span className="truncate">{dmChannel.name}</span>
+                      </div>
+                    ))}
+                  </>
+                )}
               </>
             )}
           </div>
@@ -843,6 +1435,15 @@ export default function ChannelsMePage() {
                 </div>
               </div>
               <div className="flex space-x-1">
+                <button
+                  onClick={() => setShowNotifications(true)}
+                  className="w-6 h-6 text-gray-400 hover:text-white hover:bg-gray-600 rounded p-1 relative"
+                  title="Уведомления"
+                >
+                  <svg fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
+                  </svg>
+                </button>
                 <button className="w-6 h-6 text-gray-400 hover:text-white hover:bg-gray-600 rounded p-1">
                   <svg fill="currentColor" viewBox="0 0 24 24">
                     <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
@@ -871,9 +1472,46 @@ export default function ChannelsMePage() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
         <div className="p-4 border-b border-gray-700">
-          <h1 className="text-xl font-semibold">
-            {currentChannel ? `#${currentChannel.name}` : (pathname === '/channels/@me' ? 'Друзья' : 'Друзья')}
-          </h1>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <h1 className="text-xl font-semibold">
+                {currentChannel ? `#${currentChannel.name}` : currentDmChannel ? currentDmChannel.name : (pathname === '/channels/@me' ? 'Друзья' : 'Друзья')}
+              </h1>
+              {currentChannel && (
+                <button
+                  onClick={() => setShowChannelSettings(true)}
+                  className="p-1 text-gray-400 hover:text-white hover:bg-gray-700 rounded"
+                  title="Настройки канала"
+                >
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.82,11.69,4.82,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.43-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/>
+                  </svg>
+                </button>
+              )}
+            </div>
+            {currentChannel && (
+              <div className="flex space-x-1">
+                <button
+                  onClick={() => setShowPinnedMessages(true)}
+                  className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded"
+                  title="Закрепленные сообщения"
+                >
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/>
+                  </svg>
+                </button>
+                <button
+                  onClick={() => setShowMessageSearch(true)}
+                  className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded"
+                  title="Поиск сообщений"
+                >
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+                  </svg>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
         <div className="flex-1 overflow-y-auto scrollbar-hide">
           <div className="p-4">
@@ -907,7 +1545,7 @@ export default function ChannelsMePage() {
                       }, {});
 
                       return (
-                        <div key={message.id} className="flex items-start space-x-3 group">
+                        <div key={message.id} id={`message-${message.id}`} className="flex items-start space-x-3 group">
                           <img
                             src={message.user_profile?.avatar_url || '/assets/66e90ab9506850e8a5dd48e3_Discrod_MainLogo.svg'}
                             alt={message.user_profile?.display_name}
@@ -921,8 +1559,84 @@ export default function ChannelsMePage() {
                               </span>
                             </div>
                             <div className="text-gray-300 mt-1 prose prose-invert max-w-none">
-                              <ReactMarkdown>{message.content}</ReactMarkdown>
+                              <ReactMarkdown components={{
+                                p: ({children}) => {
+                                  // Highlight mentions
+                                  const content = children?.toString() || '';
+                                  const parts = content.split(/(@\w+)/g);
+
+                                  return (
+                                    <p>
+                                      {parts.map((part, index) => {
+                                        if (part.startsWith('@')) {
+                                          const username = part.slice(1);
+                                          // Check if this is a valid mention
+                                          const isValidMention = message.mentions?.some(
+                                            (mention: any) => mention.mentioned_user?.username === username
+                                          );
+
+                                          return (
+                                            <span
+                                              key={index}
+                                              className={isValidMention ? 'bg-blue-600/20 text-blue-400 px-1 py-0.5 rounded font-medium' : ''}
+                                            >
+                                              {part}
+                                            </span>
+                                          );
+                                        }
+                                        return <span key={index}>{part}</span>;
+                                      })}
+                                    </p>
+                                  );
+                                }
+                              }}>
+                                {message.content}
+                              </ReactMarkdown>
                             </div>
+
+                            {/* File Attachments */}
+                            {message.file_attachments && message.file_attachments.length > 0 && (
+                              <div className="mt-3 space-y-2">
+                                {message.file_attachments.map((attachment: any) => (
+                                  <div key={attachment.id} className="flex items-center space-x-3 bg-gray-700 rounded-lg p-3">
+                                    <div className="flex-shrink-0">
+                                      {attachment.mime_type.startsWith('image/') ? (
+                                        <img
+                                          src={supabase!.storage.from('file-attachments').getPublicUrl(attachment.file_path).data.publicUrl}
+                                          alt={attachment.original_name}
+                                          className="w-12 h-12 rounded object-cover"
+                                        />
+                                      ) : attachment.mime_type.startsWith('video/') ? (
+                                        <div className="w-12 h-12 bg-gray-600 rounded flex items-center justify-center">
+                                          <svg className="w-6 h-6 text-gray-300" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M8 5v14l11-7z"/>
+                                          </svg>
+                                        </div>
+                                      ) : (
+                                        <div className="w-12 h-12 bg-gray-600 rounded flex items-center justify-center">
+                                          <svg className="w-6 h-6 text-gray-300" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zM6 20V4h7v5h5v11H6z"/>
+                                          </svg>
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <a
+                                        href={supabase!.storage.from('file-attachments').getPublicUrl(attachment.file_path).data.publicUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-blue-400 hover:text-blue-300 underline truncate block"
+                                      >
+                                        {attachment.original_name}
+                                      </a>
+                                      <div className="text-xs text-gray-400">
+                                        {(attachment.file_size / 1024 / 1024).toFixed(2)} MB
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
 
                             {/* Reactions */}
                             {Object.keys(groupedReactions).length > 0 && (
@@ -940,14 +1654,68 @@ export default function ChannelsMePage() {
                               </div>
                             )}
 
-                            {/* Add reaction button */}
-                            <div className="opacity-0 group-hover:opacity-100 transition-opacity mt-1">
+                            {/* Add reaction button and pin button */}
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity mt-1 flex space-x-1">
                               <button
                                 onClick={() => setShowEmojiPicker(showEmojiPicker === message.id ? null : message.id)}
                                 className="text-gray-400 hover:text-gray-300 p-1 rounded hover:bg-gray-700 transition-colors"
+                                title="Добавить реакцию"
                               >
                                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                                   <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/>
+                                </svg>
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    const { data: { user } } = await supabase!.auth.getUser();
+                                    if (!user) return;
+
+                                    // Check if user has permission to pin messages
+                                    if (!currentServer?.id) return;
+                                    const canPin = await canManageChannels(user.id, currentServer.id);
+                                    if (!canPin) {
+                                      toast.error('У вас нет прав на закрепление сообщений');
+                                      return;
+                                    }
+
+                                    // Check if message is already pinned
+                                    const { data: existingPin } = await supabase!
+                                      .from('pinned_messages')
+                                      .select('id')
+                                      .eq('message_id', message.id)
+                                      .maybeSingle();
+
+                                    if (existingPin) {
+                                      toast.error('Сообщение уже закреплено');
+                                      return;
+                                    }
+
+                                    // Pin the message
+                                    const { error } = await supabase!
+                                      .from('pinned_messages')
+                                      .insert({
+                                        message_id: message.id,
+                                        channel_id: currentChannel.id,
+                                        pinned_by: user.id
+                                      });
+
+                                    if (error) {
+                                      console.error('Error pinning message:', error);
+                                      toast.error('Ошибка при закреплении сообщения');
+                                    } else {
+                                      toast.success('Сообщение закреплено');
+                                    }
+                                  } catch (error) {
+                                    console.error('Error:', error);
+                                    toast.error('Ошибка при закреплении сообщения');
+                                  }
+                                }}
+                                className="text-gray-400 hover:text-yellow-400 p-1 rounded hover:bg-gray-700 transition-colors"
+                                title="Закрепить сообщение"
+                              >
+                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                  <path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/>
                                 </svg>
                               </button>
                             </div>
@@ -977,18 +1745,55 @@ export default function ChannelsMePage() {
 
                 {/* Message Input */}
                 <div className="p-4 border-t border-gray-700">
-                  <div className="flex space-x-4">
-                    <input
-                      type="text"
-                      placeholder={`Сообщение #${currentChannel.name}`}
+                  {/* File Upload Area */}
+                  {showFileUpload && (
+                    <div className="mb-4">
+                      <FileUpload
+                        onFileSelect={setSelectedFiles}
+                        maxFiles={10}
+                        maxFileSize={8}
+                      />
+                    </div>
+                  )}
+
+                  {/* Selected Files Preview */}
+                  {selectedFiles.length > 0 && (
+                    <div className="mb-4 flex flex-wrap gap-2">
+                      {selectedFiles.map((file, index) => (
+                        <div key={index} className="flex items-center bg-gray-700 rounded px-3 py-1">
+                          <span className="text-sm text-gray-300 mr-2">{file.name}</span>
+                          <button
+                            onClick={() => setSelectedFiles(selectedFiles.filter((_, i) => i !== index))}
+                            className="text-red-400 hover:text-red-300"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => setShowFileUpload(!showFileUpload)}
+                      className="p-3 bg-gray-700 hover:bg-gray-600 text-gray-400 hover:text-white rounded-lg transition-colors"
+                      title="Прикрепить файлы"
+                    >
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zM6 20V4h7v5h5v11H6z"/>
+                      </svg>
+                    </button>
+                    <MentionInput
                       value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
-                      onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-                      className="flex-1 px-4 py-3 bg-gray-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      onChange={setNewMessage}
+                      placeholder={currentChannel ? `Сообщение #${currentChannel.name}` : currentDmChannel ? `Сообщение @${currentDmChannel.name}` : 'Выберите канал'}
+                      serverId={currentServer?.id}
+                      channelId={currentChannel?.id || currentDmChannel?.id}
+                      className="flex-1"
                     />
                     <button
                       onClick={sendMessage}
-                      disabled={!newMessage.trim()}
+                      disabled={!newMessage.trim() && selectedFiles.length === 0}
                       className="px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
                     >
                       Отправить
@@ -1064,7 +1869,7 @@ export default function ChannelsMePage() {
                             <div key={user.id} className="flex items-center justify-between p-3 hover:bg-gray-600 transition-colors border-b border-gray-600 last:border-b-0">
                               <div className="flex items-center space-x-3">
                                 <img
-                                  src={user.avatar}
+                                  src={user.avatar || '/assets/66e90ab9506850e8a5dd48e3_Discrod_MainLogo.svg'}
                                   alt={user.display_name}
                                   className="w-8 h-8 rounded-full"
                                 />
@@ -1073,12 +1878,20 @@ export default function ChannelsMePage() {
                                   <p className="text-gray-400 text-sm">{user.username}</p>
                                 </div>
                               </div>
-                              <button
-                                onClick={() => sendFriendRequest(user.id)}
-                                className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors"
-                              >
-                                Добавить
-                              </button>
+                              <div className="flex space-x-2">
+                                <button
+                                  onClick={() => sendFriendRequest(user.id)}
+                                  className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors"
+                                >
+                                  Добавить
+                                </button>
+                                <button
+                                  onClick={() => createDMChannel(user.id)}
+                                  className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm rounded transition-colors"
+                                >
+                                  Сообщение
+                                </button>
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -1106,34 +1919,54 @@ export default function ChannelsMePage() {
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {filteredFriends.map((friend) => (
-                      <div key={friend.id} className="flex items-center p-3 rounded hover:bg-gray-700 transition-colors">
-                        <div className="relative mr-3">
-                          <img
-                            src={'/assets/66e90ab9506850e8a5dd48e3_Discrod_MainLogo.svg'}
-                            alt={friend.friend_id}
-                            className="w-8 h-8 rounded-full"
-                          />
-                          <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-gray-800"></div>
+                    {filteredFriends.map((friend) => {
+                      const friendStatus = userStatuses[friend.friend_id];
+                      const getStatusColor = (status: string) => {
+                        switch (status) {
+                          case 'online': return 'bg-green-500';
+                          case 'idle': return 'bg-yellow-500';
+                          case 'dnd': return 'bg-red-500';
+                          default: return 'bg-gray-500';
+                        }
+                      };
+                      const getStatusText = (status: string) => {
+                        switch (status) {
+                          case 'online': return 'В сети';
+                          case 'idle': return 'Неактивен';
+                          case 'dnd': return 'Не беспокоить';
+                          default: return 'Не в сети';
+                        }
+                      };
+
+                      return (
+                        <div key={friend.id} className="flex items-center p-3 rounded hover:bg-gray-700 transition-colors">
+                          <div className="relative mr-3">
+                            <img
+                              src={friend.friend_profile?.avatar_url || '/assets/66e90ab9506850e8a5dd48e3_Discrod_MainLogo.svg'}
+                              alt={friend.friend_profile?.display_name || friend.friend_id}
+                              className="w-8 h-8 rounded-full"
+                            />
+                            <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-gray-800 ${getStatusColor(friendStatus?.status || 'offline')}`}></div>
+                          </div>
+                          <div className="flex-1">
+                            <div className="text-white font-medium">{friend.friend_profile?.display_name || friend.friend_id}</div>
+                            <div className="text-gray-400 text-sm">{getStatusText(friendStatus?.status || 'offline')}</div>
+                          </div>
+                          <div className="flex space-x-2">
+                            <button className="p-2 text-gray-400 hover:text-white hover:bg-gray-600 rounded">
+                              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M12 22a10 10 0 1 0-8.45-4.64c.13.19.11.44-.04.61l-2.06 2.37A1 1 0 0 0 2.2 22H12Z"/>
+                              </svg>
+                            </button>
+                            <button className="p-2 text-gray-400 hover:text-white hover:bg-gray-600 rounded">
+                              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                                <path fillRule="evenodd" d="M10 4a2 2 0 1 0 4 0 2 2 0 0 0-4 0Zm2 10a2 2 0 1 1 0-4 2 2 0 0 1 0 4Zm0 8a2 2 0 1 1 0-4 2 2 0 0 1 0 4Z" clipRule="evenodd"/>
+                              </svg>
+                            </button>
+                          </div>
                         </div>
-                        <div className="flex-1">
-                          <div className="text-white font-medium">{friend.friend_id}</div>
-                          <div className="text-gray-400 text-sm">В сети</div>
-                        </div>
-                        <div className="flex space-x-2">
-                          <button className="p-2 text-gray-400 hover:text-white hover:bg-gray-600 rounded">
-                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M12 22a10 10 0 1 0-8.45-4.64c.13.19.11.44-.04.61l-2.06 2.37A1 1 0 0 0 2.2 22H12Z"/>
-                            </svg>
-                          </button>
-                          <button className="p-2 text-gray-400 hover:text-white hover:bg-gray-600 rounded">
-                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                              <path fillRule="evenodd" d="M10 4a2 2 0 1 0 4 0 2 2 0 0 0-4 0Zm2 10a2 2 0 1 1 0-4 2 2 0 0 1 0 4Zm0 8a2 2 0 1 1 0-4 2 2 0 0 1 0 4Z" clipRule="evenodd"/>
-                            </svg>
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </>
@@ -1383,8 +2216,7 @@ export default function ChannelsMePage() {
                       .eq('user_id', user.id);
 
                     if (updatedServers) {
-                      const serverList = updatedServers.map(item => item.servers).filter(Boolean);
-                      setServers(serverList);
+                      refreshServers();
                     }
 
                     // Redirect to the new server
@@ -1609,6 +2441,13 @@ export default function ChannelsMePage() {
                     const { data: { user } } = await supabase!.auth.getUser();
                     if (!user) return;
 
+                    // Check if user can manage channels
+                    const canCreate = await canManageChannels(user.id, currentServer.id);
+                    if (!canCreate) {
+                      toast.error('У вас нет прав на создание каналов');
+                      return;
+                    }
+
                     const { error } = await supabase!
                       .from('channels')
                       .insert({
@@ -1754,9 +2593,38 @@ export default function ChannelsMePage() {
                     <span className="text-gray-400 text-sm">Все участники</span>
                   </div>
                 </div>
-                <button className="w-full mt-3 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded transition-colors">
-                  Создать роль
-                </button>
+                <div className="grid grid-cols-2 gap-3 mt-3">
+                  <button
+                    onClick={() => {
+                      setShowServerSettings(false);
+                      setShowRoleManager(true);
+                    }}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
+                  >
+                    Управление ролями
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowServerSettings(false);
+                      setShowInviteManager(true);
+                    }}
+                    className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded transition-colors"
+                  >
+                    Приглашения
+                  </button>
+                  <button className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded transition-colors">
+                    Создать роль
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowServerSettings(false);
+                      setShowModerationPanel(true);
+                    }}
+                    className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded transition-colors"
+                  >
+                    Модерация
+                  </button>
+                </div>
               </div>
 
               {/* Danger Zone */}
@@ -1947,8 +2815,7 @@ export default function ChannelsMePage() {
                       .eq('user_id', user.id);
 
                     if (updatedServers) {
-                      const serverList = updatedServers.map(item => item.servers).filter(Boolean);
-                      setServers(serverList);
+                      refreshServers();
                     }
 
                     setJoinServerName('');
@@ -1974,6 +2841,87 @@ export default function ChannelsMePage() {
           </div>
         </div>
       )}
+
+      {/* Role Manager Modal */}
+      {showRoleManager && currentServer && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
+          <div className="bg-gray-800 rounded-lg w-full max-w-4xl max-h-[90vh] overflow-hidden">
+            <RoleManager
+              serverId={currentServer.id}
+              userId={userProfile?.id || ''}
+              onClose={() => setShowRoleManager(false)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Invite Manager Modal */}
+      {showInviteManager && currentServer && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
+          <div className="bg-gray-800 rounded-lg w-full max-w-4xl max-h-[90vh] overflow-hidden">
+            <InviteManager
+              serverId={currentServer.id}
+              userId={userProfile?.id || ''}
+              onClose={() => setShowInviteManager(false)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Moderation Panel Modal */}
+      {showModerationPanel && currentServer && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
+          <div className="bg-gray-800 rounded-lg w-full max-w-4xl max-h-[90vh] overflow-hidden">
+            <ModerationPanel
+              serverId={currentServer.id}
+              userId={userProfile?.id || ''}
+              onClose={() => setShowModerationPanel(false)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Message Search Modal */}
+      {showMessageSearch && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
+          <div className="bg-gray-800 rounded-lg w-full max-w-4xl max-h-[90vh] overflow-hidden">
+            <MessageSearch
+              serverId={currentServer?.id}
+              channelId={currentChannel?.id}
+              onClose={() => setShowMessageSearch(false)}
+              onJumpToMessage={jumpToMessage}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Channel Settings Modal */}
+      {showChannelSettings && currentChannel && currentServer && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
+          <div className="bg-gray-800 rounded-lg w-full max-w-2xl max-h-[90vh] overflow-hidden">
+            <ChannelSettings
+              channelId={currentChannel.id}
+              serverId={currentServer.id}
+              userId={userProfile?.id || ''}
+              onClose={() => setShowChannelSettings(false)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Pinned Messages Modal */}
+      {showPinnedMessages && currentChannel && (
+        <PinnedMessagesModal
+          channelId={currentChannel.id}
+          onClose={() => setShowPinnedMessages(false)}
+        />
+      )}
+
+      {/* Notification Panel */}
+      <NotificationPanel
+        isOpen={showNotifications}
+        onClose={() => setShowNotifications(false)}
+      />
     </div>
   );
 }

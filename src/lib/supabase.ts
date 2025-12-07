@@ -326,6 +326,197 @@ export interface Database {
           created_at?: string
         }
       }
+      pinned_messages: {
+        Row: {
+          id: string
+          message_id: string
+          channel_id: string
+          pinned_by: string
+          pinned_at: string
+        }
+        Insert: {
+          id?: string
+          message_id: string
+          channel_id: string
+          pinned_by: string
+          pinned_at?: string
+        }
+        Update: {
+          id?: string
+          message_id?: string
+          channel_id?: string
+          pinned_by?: string
+          pinned_at?: string
+        }
+      }
+      file_attachments: {
+        Row: {
+          id: string
+          message_id: string
+          filename: string
+          original_name: string
+          file_size: number
+          mime_type: string
+          file_path: string
+          uploaded_by: string
+          uploaded_at: string
+        }
+        Insert: {
+          id?: string
+          message_id: string
+          filename: string
+          original_name: string
+          file_size: number
+          mime_type: string
+          file_path: string
+          uploaded_by: string
+          uploaded_at?: string
+        }
+        Update: {
+          id?: string
+          message_id?: string
+          filename?: string
+          original_name?: string
+          file_size?: number
+          mime_type?: string
+          file_path?: string
+          uploaded_by?: string
+          uploaded_at?: string
+        }
+      }
+      mentions: {
+        Row: {
+          id: string
+          message_id: string
+          mentioned_user_id: string
+          mentioned_by: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          message_id: string
+          mentioned_user_id: string
+          mentioned_by: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          message_id?: string
+          mentioned_user_id?: string
+          mentioned_by?: string
+          created_at?: string
+        }
+      }
+      notifications: {
+        Row: {
+          id: string
+          user_id: string
+          type: 'mention' | 'message' | 'friend_request' | 'server_invite' | 'system'
+          title: string
+          content: string | null
+          data: any
+          is_read: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          type: 'mention' | 'message' | 'friend_request' | 'server_invite' | 'system'
+          title: string
+          content?: string | null
+          data?: any
+          is_read?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          type?: 'mention' | 'message' | 'friend_request' | 'server_invite' | 'system'
+          title?: string
+          content?: string | null
+          data?: any
+          is_read?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      notification_settings: {
+        Row: {
+          id: string
+          user_id: string
+          mentions: boolean
+          messages: boolean
+          friend_requests: boolean
+          server_invites: boolean
+          system: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          mentions?: boolean
+          messages?: boolean
+          friend_requests?: boolean
+          server_invites?: boolean
+          system?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          mentions?: boolean
+          messages?: boolean
+          friend_requests?: boolean
+          server_invites?: boolean
+          system?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      dm_channels: {
+        Row: {
+          id: string
+          created_by: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          created_by: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          created_by?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      dm_channel_members: {
+        Row: {
+          id: string
+          dm_channel_id: string
+          user_id: string
+          joined_at: string
+        }
+        Insert: {
+          id?: string
+          dm_channel_id: string
+          user_id: string
+          joined_at?: string
+        }
+        Update: {
+          id?: string
+          dm_channel_id?: string
+          user_id?: string
+          joined_at?: string
+        }
+      }
     }
   }
 }

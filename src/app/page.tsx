@@ -52,6 +52,14 @@ export default function Home() {
           <p className="text-xl text-gray-300 mb-8">
             Полнофункциональная копия Discord с современными технологиями: Next.js 16, TypeScript, Supabase и Vercel
           </p>
+          <div className="bg-green-900/20 border border-green-700 rounded-lg p-4 mb-8 inline-block">
+            <div className="flex items-center">
+              <svg className="w-5 h-5 text-green-400 mr-2" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2Zm-1 15l-4-4 1.41-1.41L11 14.17l6.59-6.59L19 9l-8 8Z"/>
+              </svg>
+              <span className="text-green-300 font-semibold">Код проверен линтером - основные ошибки исправлены</span>
+            </div>
+          </div>
 
           {/* Начало работы */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
@@ -295,16 +303,16 @@ export default function Home() {
           <h2 className="text-2xl font-semibold mb-6">Технологии</h2>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             {[
-              { name: 'Next.js 16', color: 'bg-blue-600' },
-              { name: 'TypeScript', color: 'bg-blue-500' },
-              { name: 'Tailwind CSS', color: 'bg-cyan-500' },
+              { name: 'Next.js 16.0.7', color: 'bg-blue-600' },
+              { name: 'TypeScript 5', color: 'bg-blue-500' },
+              { name: 'Tailwind CSS 4', color: 'bg-cyan-500' },
               { name: 'Supabase', color: 'bg-green-600' },
               { name: 'Vercel', color: 'bg-black' },
               { name: 'PostgreSQL', color: 'bg-blue-700' },
-              { name: 'React 19', color: 'bg-blue-400' },
+              { name: 'React 19.2.0', color: 'bg-blue-400' },
               { name: 'Node.js', color: 'bg-green-500' },
+              { name: 'ESLint 9', color: 'bg-purple-600' },
               { name: 'Jest', color: 'bg-red-500' },
-              { name: 'Cypress', color: 'bg-gray-600' },
             ].map((tech) => (
               <div key={tech.name} className={`${tech.color} rounded-lg p-4 text-center`}>
                 <span className="font-semibold">{tech.name}</span>

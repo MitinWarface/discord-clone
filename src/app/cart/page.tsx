@@ -1,12 +1,21 @@
 'use client'
 
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
+interface CartItem {
+  id: number;
+  name: string;
+  description: string;
+  price: number;
+  quantity: number;
+  image_url?: string;
+}
+
 export default function CartPage() {
   const router = useRouter();
-  const [cart, setCart] = useState<any[]>([]);
+  const [cart, setCart] = useState<CartItem[]>([]);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -20,13 +29,20 @@ export default function CartPage() {
     };
 
     checkAuth();
+  }, [router]);
 
+  useLayoutEffect(() => {
     // Load cart from localStorage
     const savedCart = localStorage.getItem('discord-cart');
     if (savedCart) {
-      setCart(JSON.parse(savedCart));
+      try {
+        const parsedCart = JSON.parse(savedCart);
+        setCart(parsedCart);
+      } catch (error) {
+        console.error('Error parsing cart from localStorage:', error);
+      }
     }
-  }, [router]);
+  }, []);
 
   const updateQuantity = (id: number, quantity: number) => {
     if (quantity <= 0) {

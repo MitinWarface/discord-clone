@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
@@ -14,11 +14,22 @@ interface Quest {
   completed: boolean;
 }
 
+interface UserProfile {
+  id: string;
+  username: string;
+  username_base: string;
+  discriminator: number;
+  display_name: string;
+  avatar_url: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export default function QuestHomePage() {
   const router = useRouter();
   const [quests, setQuests] = useState<Quest[]>([]);
   const [loading, setLoading] = useState(true);
-  const [userProfile, setUserProfile] = useState<any>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [showAddServer, setShowAddServer] = useState(false);
   const [showCreateOwn, setShowCreateOwn] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
@@ -46,7 +57,9 @@ export default function QuestHomePage() {
     };
 
     checkAuth();
+  }, [router]);
 
+  useLayoutEffect(() => {
     // Load quests - for now using static data, can be extended to load from DB
     const staticQuests: Quest[] = [
       {
@@ -89,7 +102,7 @@ export default function QuestHomePage() {
 
     setQuests(staticQuests);
     setLoading(false);
-  }, [router]);
+  }, []);
 
   const claimReward = (questId: number) => {
     setQuests(quests.map(quest =>
