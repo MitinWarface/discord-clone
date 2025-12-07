@@ -2,12 +2,19 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Discord | Друзья',
+};
 
 export default function ChannelsMePage() {
   const [friends, setFriends] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState('online');
 
   useEffect(() => {
+    document.title = 'Discord | Друзья';
+
     const getFriends = async () => {
       const { data: { user } } = await supabase!.auth.getUser();
       if (!user) return;
@@ -53,13 +60,37 @@ export default function ChannelsMePage() {
           <h2 className="text-sm font-semibold text-gray-300">Друзья</h2>
         </div>
         <div className="flex-1 overflow-y-auto">
-          <div className="p-2">
+          <div className="p-2 space-y-1">
             <div className="flex items-center p-2 rounded hover:bg-gray-700 cursor-pointer">
               <svg className="w-6 h-6 text-gray-400 mr-3" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M13 10a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/>
                 <path d="M3 5v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2H5c-1.11 0-2 .9-2 2Zm12 10c0 1.66-1.34 3-3 3s-3-1.34-3-3 1.34-3 3-3 3 1.34 3 3Zm-9 4c0-.22.03-.42.06-.63C5.74 16.86 7.87 15 10 15s4.26 1.86 4.94 3.37c.03.2.06.41.06.63H6Zm8-7c0-.55-.45-1-1-1s-1 .45-1 1 .45 1 1 1 1-.45 1-1Z"/>
               </svg>
               <span className="text-gray-300">Друзья</span>
+            </div>
+            <div className="flex items-center p-2 rounded hover:bg-gray-700 cursor-pointer">
+              <svg className="w-6 h-6 text-gray-400 mr-3" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2Zm-1 15l-4-4 1.41-1.41L11 14.17l6.59-6.59L19 9l-8 8Z"/>
+              </svg>
+              <span className="text-gray-300">Запросы общения</span>
+            </div>
+            <div className="flex items-center p-2 rounded hover:bg-gray-700 cursor-pointer">
+              <svg className="w-6 h-6 text-yellow-400 mr-3" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+              </svg>
+              <span className="text-gray-300">Nitro</span>
+            </div>
+            <div className="flex items-center p-2 rounded hover:bg-gray-700 cursor-pointer">
+              <svg className="w-6 h-6 text-gray-400 mr-3" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M7 4V2C7 1.45 6.55 1 6 1S5 1.45 5 2v2H4c-.55 0-1 .45-1 1s.45 1 1 1h1v10c0 1.1.9 2 2 2h6c1.1 0 2-.9 2-2V6h1c.55 0 1-.45 1-1s-.45-1-1-1h-1V4c0-.55-.45-1-1-1s-1 .45-1 1v2H7z"/>
+              </svg>
+              <span className="text-gray-300">Магазин</span>
+            </div>
+            <div className="flex items-center p-2 rounded hover:bg-gray-700 cursor-pointer">
+              <svg className="w-6 h-6 text-gray-400 mr-3" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+              </svg>
+              <span className="text-gray-300">Задания</span>
             </div>
           </div>
         </div>
