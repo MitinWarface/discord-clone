@@ -56,7 +56,7 @@ export default function Home() {
           {/* Начало работы */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
             <a
-              href={isLoggedIn ? '/channels/me' : '/register'}
+              href={isLoggedIn ? '/channels/@me' : '/register'}
               className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors inline-flex items-center justify-center"
             >
               <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
@@ -150,7 +150,8 @@ export default function Home() {
               <ul className="space-y-2 text-gray-300">
                 <li>• Аутентификация пользователей</li>
                 <li>• Создание серверов и каналов</li>
-                <li>• Реал-тайм чат</li>
+                <li>• Реал-тайм чат с markdown</li>
+                <li>• Эмодзи-реакции на сообщения</li>
                 <li>• Система друзей</li>
               </ul>
             </div>
@@ -188,7 +189,7 @@ export default function Home() {
         {/* Возможности приложения */}
         <div className="max-w-4xl mx-auto mt-12">
           <h2 className="text-2xl font-semibold mb-6">Возможности приложения</h2>
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             <div className="bg-gray-800 rounded-lg p-6 hover:scale-105 transition-transform duration-300">
               <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center mb-4">
                 <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
@@ -217,6 +218,14 @@ export default function Home() {
               </div>
               <h3 className="text-xl font-semibold mb-2">Система друзей</h3>
               <p className="text-gray-300">Добавляйте друзей, управляйте запросами и общайтесь в приватных чатах.</p>
+            </div>
+
+            <div className="bg-gray-800 rounded-lg p-6 hover:scale-105 transition-transform duration-300">
+              <div className="w-12 h-12 bg-pink-600 rounded-lg flex items-center justify-center mb-4">
+                <span className="text-2xl">😀</span>
+              </div>
+              <h3 className="text-xl font-semibold mb-2">Эмодзи-реакции</h3>
+              <p className="text-gray-300">Выражайте эмоции с помощью реакций на сообщения в реальном времени.</p>
             </div>
 
             <div className="bg-gray-800 rounded-lg p-6 hover:scale-105 transition-transform duration-300">

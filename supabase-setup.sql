@@ -3,6 +3,52 @@
 -- Полная настройка базы данных для Discord-клона
 -- =========================================
 
+-- Удаление существующих таблиц (для полной переинициализации)
+DO $$
+BEGIN
+    -- Удаляем таблицы в правильном порядке (сначала зависимые)
+    DROP TABLE IF EXISTS reactions CASCADE;
+    DROP TABLE IF EXISTS messages CASCADE;
+    DROP TABLE IF EXISTS channels CASCADE;
+    DROP TABLE IF EXISTS server_members CASCADE;
+    DROP TABLE IF EXISTS servers CASCADE;
+    DROP TABLE IF EXISTS user_quests CASCADE;
+    DROP TABLE IF EXISTS order_items CASCADE;
+    DROP TABLE IF EXISTS orders CASCADE;
+    DROP TABLE IF EXISTS products CASCADE;
+    DROP TABLE IF EXISTS friends CASCADE;
+    DROP TABLE IF EXISTS profiles CASCADE;
+EXCEPTION
+    WHEN OTHERS THEN
+        -- Игнорируем ошибки, если таблицы не существуют
+        NULL;
+END $$;
+
+-- Удаление существующих функций
+DROP FUNCTION IF EXISTS generate_discriminator(TEXT) CASCADE;
+DROP FUNCTION IF EXISTS search_users(TEXT) CASCADE;
+DROP FUNCTION IF EXISTS get_user_stats(UUID) CASCADE;
+DROP FUNCTION IF EXISTS create_default_quests(UUID) CASCADE;
+DROP FUNCTION IF EXISTS update_updated_at_column() CASCADE;
+DROP FUNCTION IF EXISTS handle_new_user() CASCADE;
+
+-- Удаление существующих триггеров (только если таблицы существуют)
+DO $$
+BEGIN
+    DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+    DROP TRIGGER IF EXISTS update_profiles_updated_at ON profiles;
+    DROP TRIGGER IF EXISTS update_orders_updated_at ON orders;
+    DROP TRIGGER IF EXISTS update_user_quests_updated_at ON user_quests;
+    DROP TRIGGER IF EXISTS update_servers_updated_at ON servers;
+    DROP TRIGGER IF EXISTS update_channels_updated_at ON channels;
+    DROP TRIGGER IF EXISTS update_messages_updated_at ON messages;
+    DROP TRIGGER IF EXISTS update_reactions_updated_at ON reactions;
+EXCEPTION
+    WHEN OTHERS THEN
+        -- Игнорируем ошибки
+        NULL;
+END $$;
+
 -- Включение RLS (Row Level Security)
 -- ALTER DATABASE postgres SET "app.jwt_secret" TO 'your-jwt-secret'; -- Только для админа
 
@@ -195,8 +241,8 @@ CREATE TABLE servers (
 -- RLS для servers
 ALTER TABLE servers ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Everyone can view public servers" ON servers
-  FOR SELECT USING (is_public = TRUE);
+CREATE POLICY "Authenticated users can view servers" ON servers
+  FOR SELECT USING (auth.role() = 'authenticated');
 
 CREATE POLICY "Server owners can manage their servers" ON servers
   FOR ALL USING (auth.uid() = owner_id);
@@ -214,10 +260,161 @@ CREATE TABLE server_members (
   UNIQUE(server_id, user_id)
 );
 
+-- =========================================
+-- 9. Таблица каналов
+-- =========================================
+
+CREATE TABLE channels (
+  id SERIAL PRIMARY KEY,
+  server_id INTEGER REFERENCES servers(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  type TEXT CHECK (type IN ('text', 'voice')) DEFAULT 'text',
+  position INTEGER DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- RLS для channels
+ALTER TABLE channels ENABLE ROW LEVEL SECURITY;
+
+-- Удаляем существующие политики
+DROP POLICY IF EXISTS "Server members can view channels" ON channels;
+DROP POLICY IF EXISTS "Server admins can manage channels" ON channels;
+
+CREATE POLICY "Server members can view channels" ON channels
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM server_members sm
+      WHERE sm.server_id = channels.server_id
+      AND sm.user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Server admins can insert channels" ON channels
+  FOR INSERT WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM server_members sm
+      WHERE sm.server_id = channels.server_id
+      AND sm.user_id = auth.uid()
+      AND sm.role IN ('admin', 'owner')
+    )
+  );
+
+CREATE POLICY "Server admins can update channels" ON channels
+  FOR UPDATE USING (
+    EXISTS (
+      SELECT 1 FROM server_members sm
+      WHERE sm.server_id = channels.server_id
+      AND sm.user_id = auth.uid()
+      AND sm.role IN ('admin', 'owner')
+    )
+  );
+
+CREATE POLICY "Server admins can delete channels" ON channels
+  FOR DELETE USING (
+    EXISTS (
+      SELECT 1 FROM server_members sm
+      WHERE sm.server_id = channels.server_id
+      AND sm.user_id = auth.uid()
+      AND sm.role IN ('admin', 'owner')
+    )
+  );
+
+-- =========================================
+-- 10. Таблица сообщений
+-- =========================================
+
+CREATE TABLE messages (
+  id SERIAL PRIMARY KEY,
+  channel_id INTEGER REFERENCES channels(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  content TEXT NOT NULL,
+  message_type TEXT CHECK (message_type IN ('text', 'system')) DEFAULT 'text',
+  edited BOOLEAN DEFAULT FALSE,
+  edited_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- RLS для messages
+ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Server members can view messages" ON messages
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM server_members sm
+      JOIN channels c ON c.server_id = sm.server_id
+      WHERE c.id = messages.channel_id
+      AND sm.user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Server members can send messages" ON messages
+  FOR INSERT WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM server_members sm
+      JOIN channels c ON c.server_id = sm.server_id
+      WHERE c.id = messages.channel_id
+      AND sm.user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Users can edit their messages" ON messages
+  FOR UPDATE USING (auth.uid() = user_id);
+
+-- =========================================
+-- 11. Таблица реакций
+-- =========================================
+
+CREATE TABLE reactions (
+  id SERIAL PRIMARY KEY,
+  message_id INTEGER REFERENCES messages(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  emoji TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(message_id, user_id, emoji) -- Один пользователь может поставить только одну реакцию одного типа на сообщение
+);
+
+-- RLS для reactions
+ALTER TABLE reactions ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Server members can view reactions" ON reactions
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM messages m
+      JOIN server_members sm ON sm.server_id = (
+        SELECT c.server_id FROM channels c WHERE c.id = m.channel_id
+      )
+      WHERE m.id = reactions.message_id
+      AND sm.user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Server members can add reactions" ON reactions
+  FOR INSERT WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM messages m
+      JOIN server_members sm ON sm.server_id = (
+        SELECT c.server_id FROM channels c WHERE c.id = m.channel_id
+      )
+      WHERE m.id = reactions.message_id
+      AND sm.user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Users can remove their reactions" ON reactions
+  FOR DELETE USING (auth.uid() = user_id);
+
 -- RLS для server_members
 ALTER TABLE server_members ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Server members can view member list" ON server_members
+-- Удаляем существующие политики
+DROP POLICY IF EXISTS "Authenticated users can view server memberships" ON server_members;
+DROP POLICY IF EXISTS "Users can join servers" ON server_members;
+DROP POLICY IF EXISTS "Server members can view memberships" ON server_members;
+DROP POLICY IF EXISTS "Server admins can manage members" ON server_members;
+
+CREATE POLICY "Server members can view memberships" ON server_members
   FOR SELECT USING (
     EXISTS (
       SELECT 1 FROM server_members sm
@@ -228,6 +425,19 @@ CREATE POLICY "Server members can view member list" ON server_members
 
 CREATE POLICY "Users can join servers" ON server_members
   FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Server admins can manage members" ON server_members
+  FOR UPDATE USING (
+    EXISTS (
+      SELECT 1 FROM server_members sm
+      WHERE sm.server_id = server_members.server_id
+      AND sm.user_id = auth.uid()
+      AND sm.role IN ('admin', 'owner')
+    )
+  );
+
+CREATE POLICY "Users can leave servers" ON server_members
+  FOR DELETE USING (auth.uid() = user_id);
 
 -- =========================================
 -- ИНДЕКСЫ ДЛЯ ПРОИЗВОДИТЕЛЬНОСТИ
@@ -242,6 +452,13 @@ CREATE INDEX idx_user_quests_user_id ON user_quests(user_id);
 CREATE INDEX idx_orders_user_id ON orders(user_id);
 CREATE INDEX idx_server_members_server_id ON server_members(server_id);
 CREATE INDEX idx_server_members_user_id ON server_members(user_id);
+CREATE INDEX idx_channels_server_id ON channels(server_id);
+CREATE INDEX idx_messages_channel_id ON messages(channel_id);
+CREATE INDEX idx_messages_user_id ON messages(user_id);
+CREATE INDEX idx_messages_created_at ON messages(created_at);
+CREATE INDEX idx_reactions_message_id ON reactions(message_id);
+CREATE INDEX idx_reactions_user_id ON reactions(user_id);
+CREATE INDEX idx_reactions_emoji ON reactions(emoji);
 
 -- =========================================
 -- ТРИГГЕРЫ
@@ -309,6 +526,14 @@ CREATE TRIGGER update_user_quests_updated_at
 
 CREATE TRIGGER update_servers_updated_at
   BEFORE UPDATE ON servers
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_channels_updated_at
+  BEFORE UPDATE ON channels
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_messages_updated_at
+  BEFORE UPDATE ON messages
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- =========================================
@@ -438,6 +663,9 @@ GRANT ALL ON order_items TO authenticated;
 GRANT ALL ON user_quests TO authenticated;
 GRANT ALL ON servers TO authenticated;
 GRANT ALL ON server_members TO authenticated;
+GRANT ALL ON channels TO authenticated;
+GRANT ALL ON messages TO authenticated;
+GRANT ALL ON reactions TO authenticated;
 
 -- Sequence permissions
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO authenticated;
@@ -457,5 +685,8 @@ GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO authenticated;
 -- SELECT * FROM search_users('user123');
 -- SELECT username, username_base, discriminator FROM profiles LIMIT 5;
 -- SELECT generate_discriminator('testuser');
+-- SELECT * FROM reactions LIMIT 5;
+
+COMMIT;
 
 COMMIT;

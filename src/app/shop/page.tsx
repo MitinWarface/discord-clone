@@ -14,6 +14,10 @@ export default function ShopPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [priceFilter, setPriceFilter] = useState('all');
   const [cart, setCart] = useState<any[]>([]);
+  const [showAddServer, setShowAddServer] = useState(false);
+  const [showCreateOwn, setShowCreateOwn] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [serverName, setServerName] = useState('');
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -141,7 +145,7 @@ export default function ShopPage() {
       {/* Sidebar */}
       <div className="w-16 bg-gray-800 flex flex-col items-center py-3">
         {/* Home button */}
-        <div className="w-12 h-12 bg-gray-700 rounded-2xl flex items-center justify-center mb-2 cursor-pointer hover:bg-gray-600 transition-colors" onClick={() => router.push('/channels/me')}>
+        <div className="w-12 h-12 bg-gray-700 rounded-2xl flex items-center justify-center mb-2 cursor-pointer hover:bg-gray-600 transition-colors" onClick={() => router.push('/channels/@me')}>
           <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
             <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515a.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0a12.64 12.64 0 0 0-.617-1.25a.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057a19.9 19.9 0 0 0 5.993 3.03a.078.078 0 0 0 .084-.028a14.09 14.09 0 0 0 1.226-1.994a.076.076 0 0 0-.041-.106a13.107 13.107 0 0 1-1.872-.892a.077.077 0 0 1-.008-.128a10.2 10.2 0 0 0 .372-.292a.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127a12.299 12.299 0 0 1-1.873.892a.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028a19.839 19.839 0 0 0 6.002-3.03a.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.956-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.955-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.946 2.418-2.157 2.418z"/>
           </svg>
@@ -149,7 +153,7 @@ export default function ShopPage() {
         {/* Separator */}
         <div className="w-8 h-0.5 bg-gray-600 rounded mb-2"></div>
         {/* Add Server Button */}
-        <div className="w-12 h-12 bg-gray-700 rounded-full flex items-center justify-center mb-2 cursor-pointer hover:bg-green-600 transition-colors">
+        <div className="w-12 h-12 bg-gray-700 rounded-full flex items-center justify-center mb-2 cursor-pointer hover:bg-green-600 transition-colors" onClick={() => setShowAddServer(true)}>
           <svg className="w-6 h-6 text-green-400" fill="currentColor" viewBox="0 0 24 24">
             <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/>
           </svg>
@@ -163,7 +167,7 @@ export default function ShopPage() {
         </div>
         <div className="flex-1 overflow-y-auto scrollbar-hide">
           <div className="p-2 space-y-1">
-            <div className="flex items-center p-2 rounded hover:bg-gray-700 cursor-pointer" onClick={() => router.push('/channels/me')}>
+            <div className="flex items-center p-2 rounded hover:bg-gray-700 cursor-pointer" onClick={() => router.push('/channels/@me')}>
               <svg className="w-6 h-6 text-gray-400 mr-3" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M13 10a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/>
                 <path d="M3 5v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2H5c-1.11 0-2 .9-2 2Zm12 10c0 1.66-1.34 3-3 3s-3-1.34-3-3 1.34-3 3-3 3 1.34 3 3Zm-9 4c0-.22.03-.42.06-.63C5.74 16.86 7.87 15 10 15s4.26 1.86 4.94 3.37c.03.2.06.41.06.63H6Zm8-7c0-.55-.45-1-1-1s-1 .45-1 1 .45 1 1 1 1-.45 1-1Z"/>
@@ -413,6 +417,332 @@ export default function ShopPage() {
           {/* Placeholder for recommendations */}
         </div>
       </div>
+
+      {/* Add Server Modal */}
+      {showAddServer && (
+        <div className="fixed inset-0 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-lg p-6 w-[480px] max-h-[600px] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold">Создать сервер</h3>
+              <button
+                onClick={() => setShowAddServer(false)}
+                className="text-gray-400 hover:text-white"
+              >
+                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M18.3 5.71a.996.996 0 0 0-1.41 0L12 10.59 7.11 5.7A.996.996 0 1 0 5.7 7.11L10.59 12 5.7 16.89a.996.996 0 1 0 1.41 1.41L12 13.41l4.89 4.89a.996.996 0 1 0 1.41-1.41L13.41 12l4.89-4.89c.38-.39.38-1.02 0-1.4z"/>
+                </svg>
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Create My Own */}
+              <div
+                className="bg-gray-700 rounded-lg p-4 hover:bg-gray-600 cursor-pointer transition-colors"
+                onClick={() => {
+                  setShowAddServer(false);
+                  setShowCreateOwn(true);
+                }}
+              >
+                <div className="flex items-center space-x-4">
+                  <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center">
+                    <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-semibold">Создать мой собственный</h4>
+                    <p className="text-gray-300 text-sm">Создайте сервер с нуля</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Start with Template */}
+              <div
+                className="bg-gray-700 rounded-lg p-4 hover:bg-gray-600 cursor-pointer transition-colors"
+                onClick={() => {
+                  setShowAddServer(false);
+                  setShowTemplates(true);
+                }}
+              >
+                <div className="flex items-center space-x-4">
+                  <div className="w-12 h-12 bg-green-600 rounded-2xl flex items-center justify-center">
+                    <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zM6 20V4h7v5h5v11H6z"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-semibold">Начать с шаблона</h4>
+                    <p className="text-gray-300 text-sm">Начните с готового шаблона</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Join Server */}
+              <div className="bg-gray-700 rounded-lg p-4 hover:bg-gray-600 cursor-pointer transition-colors">
+                <div className="flex items-center space-x-4">
+                  <div className="w-12 h-12 bg-purple-600 rounded-2xl flex items-center justify-center">
+                    <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-semibold">Присоединиться к серверу</h4>
+                    <p className="text-gray-300 text-sm">Войдите на сервер по приглашению</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 pt-4 border-t border-gray-700">
+              <p className="text-xs text-gray-400 text-center">
+                Создавая сервер, вы соглашаетесь с <a href="#" className="text-blue-400 hover:underline">Правилами сообщества</a>
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Own Server Modal */}
+      {showCreateOwn && (
+        <div className="fixed inset-0 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-lg p-6 w-[440px]">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold">Расскажите о вашем сервере</h3>
+              <button
+                onClick={() => {
+                  setShowCreateOwn(false);
+                  setShowAddServer(true);
+                }}
+                className="text-gray-400 hover:text-white"
+              >
+                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M18.3 5.71a.996.996 0 0 0-1.41 0L12 10.59 7.11 5.7A.996.996 0 1 0 5.7 7.11L10.59 12 5.7 16.89a.996.996 0 1 0 1.41 1.41L12 13.41l4.89 4.89a.996.996 0 1 0 1.41-1.41L13.41 12l4.89-4.89c.38-.39.38-1.02 0-1.4z"/>
+                </svg>
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              {/* Server Icon Upload */}
+              <div className="flex flex-col items-center">
+                <div className="w-20 h-20 bg-gray-700 rounded-full flex items-center justify-center mb-4 cursor-pointer hover:bg-gray-600 transition-colors">
+                  <svg className="w-8 h-8 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                  </svg>
+                </div>
+                <button className="text-blue-400 hover:text-blue-300 text-sm">
+                  Загрузить изображение
+                </button>
+              </div>
+
+              {/* Server Name */}
+              <div>
+                <label className="block text-sm font-medium mb-2">НАЗВАНИЕ СЕРВЕРА</label>
+                <input
+                  type="text"
+                  placeholder="Название сервера"
+                  value={serverName}
+                  onChange={(e) => setServerName(e.target.value)}
+                  className="w-full px-3 py-2 bg-gray-700 text-white rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <p className="text-xs text-gray-400 mt-1">
+                  Создавая сервер, вы соглашаетесь с <a href="#" className="text-blue-400 hover:underline">Правилами сообщества</a>
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-between mt-8">
+              <button
+                onClick={() => {
+                  setShowCreateOwn(false);
+                  setShowAddServer(true);
+                }}
+                className="px-4 py-2 text-gray-300 hover:text-white"
+              >
+                Назад
+              </button>
+              <button
+                onClick={async () => {
+                  if (!serverName.trim()) return;
+
+                  try {
+                    const { data: { user } } = await supabase!.auth.getUser();
+                    if (!user) return;
+
+                    // Create server
+                    const { data: server, error: serverError } = await supabase!
+                      .from('servers')
+                      .insert({
+                        name: serverName.trim(),
+                        owner_id: user.id,
+                        icon_url: null,
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString()
+                      })
+                      .select()
+                      .single();
+
+                    if (serverError) {
+                      console.error('Error creating server:', serverError);
+                      alert('Ошибка при создании сервера');
+                      return;
+                    }
+
+                    // Create default channel
+                    const { error: channelError } = await supabase!
+                      .from('channels')
+                      .insert({
+                        server_id: server.id,
+                        name: 'general',
+                        type: 'text',
+                        position: 0,
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString()
+                      });
+
+                    if (channelError) {
+                      console.error('Error creating channel:', channelError);
+                      // Continue anyway
+                    }
+
+                    // Add owner as member
+                    const { error: memberError } = await supabase!
+                      .from('server_members')
+                      .insert({
+                        server_id: server.id,
+                        user_id: user.id,
+                        role: 'owner',
+                        joined_at: new Date().toISOString()
+                      });
+
+                    if (memberError) {
+                      console.error('Error adding member:', memberError);
+                      // Continue anyway
+                    }
+
+                    alert(`Сервер "${serverName}" создан!`);
+                    setServerName('');
+                    setShowCreateOwn(false);
+
+                    // Redirect to the new server
+                    router.push(`/channels/${server.id}`);
+                  } catch (error) {
+                    console.error('Error:', error);
+                    alert('Ошибка при создании сервера');
+                  }
+                }}
+                className={`px-4 py-2 rounded ${
+                  serverName.trim()
+                    ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                    : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                }`}
+                disabled={!serverName.trim()}
+              >
+                Создать
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Templates Modal */}
+      {showTemplates && (
+        <div className="fixed inset-0 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-lg p-6 w-[600px] max-h-[600px] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold">Выберите шаблон сервера</h3>
+              <button
+                onClick={() => {
+                  setShowTemplates(false);
+                  setShowAddServer(true);
+                }}
+                className="text-gray-400 hover:text-white"
+              >
+                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M18.3 5.71a.996.996 0 0 0-1.41 0L12 10.59 7.11 5.7A.996.996 0 1 0 5.7 7.11L10.59 12 5.7 16.89a.996.996 0 1 0 1.41 1.41L12 13.41l4.89 4.89a.996.996 0 1 0 1.41-1.41L13.41 12l4.89-4.89c.38-.39.38-1.02 0-1.4z"/>
+                </svg>
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Gaming */}
+              <div>
+                <h4 className="text-lg font-semibold mb-3 text-gray-300">Игры</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-gray-700 rounded-lg p-4 hover:bg-gray-600 cursor-pointer transition-colors">
+                    <div className="w-12 h-12 bg-red-600 rounded-lg flex items-center justify-center mb-3">
+                      <span className="text-xl">🎮</span>
+                    </div>
+                    <h5 className="font-semibold">Игровые друзья</h5>
+                    <p className="text-sm text-gray-400">Для игры с друзьями</p>
+                  </div>
+                  <div className="bg-gray-700 rounded-lg p-4 hover:bg-gray-600 cursor-pointer transition-colors">
+                    <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center mb-3">
+                      <span className="text-xl">🏆</span>
+                    </div>
+                    <h5 className="font-semibold">Эспорт</h5>
+                    <p className="text-sm text-gray-400">Для соревновательных игр</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Education */}
+              <div>
+                <h4 className="text-lg font-semibold mb-3 text-gray-300">Образование</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-gray-700 rounded-lg p-4 hover:bg-gray-600 cursor-pointer transition-colors">
+                    <div className="w-12 h-12 bg-green-600 rounded-lg flex items-center justify-center mb-3">
+                      <span className="text-xl">📚</span>
+                    </div>
+                    <h5 className="font-semibold">Учебная группа</h5>
+                    <p className="text-sm text-gray-400">Для совместного обучения</p>
+                  </div>
+                  <div className="bg-gray-700 rounded-lg p-4 hover:bg-gray-600 cursor-pointer transition-colors">
+                    <div className="w-12 h-12 bg-purple-600 rounded-lg flex items-center justify-center mb-3">
+                      <span className="text-xl">🎓</span>
+                    </div>
+                    <h5 className="font-semibold">Студенческий клуб</h5>
+                    <p className="text-sm text-gray-400">Для студентов</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Community */}
+              <div>
+                <h4 className="text-lg font-semibold mb-3 text-gray-300">Сообщество</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-gray-700 rounded-lg p-4 hover:bg-gray-600 cursor-pointer transition-colors">
+                    <div className="w-12 h-12 bg-yellow-600 rounded-lg flex items-center justify-center mb-3">
+                      <span className="text-xl">🌟</span>
+                    </div>
+                    <h5 className="font-semibold">Фан-сообщество</h5>
+                    <p className="text-sm text-gray-400">Для фанатов</p>
+                  </div>
+                  <div className="bg-gray-700 rounded-lg p-4 hover:bg-gray-600 cursor-pointer transition-colors">
+                    <div className="w-12 h-12 bg-pink-600 rounded-lg flex items-center justify-center mb-3">
+                      <span className="text-xl">🎨</span>
+                    </div>
+                    <h5 className="font-semibold">Творческое сообщество</h5>
+                    <p className="text-sm text-gray-400">Для творческих людей</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-start mt-6">
+              <button
+                onClick={() => {
+                  setShowTemplates(false);
+                  setShowAddServer(true);
+                }}
+                className="px-4 py-2 text-gray-300 hover:text-white"
+              >
+                Назад
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
