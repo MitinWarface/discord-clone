@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 export default function ShopPage() {
   const router = useRouter();
   const [activeCategory, setActiveCategory] = useState('nitro');
+  const [products, setProducts] = useState<any[]>([]);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -21,6 +22,16 @@ export default function ShopPage() {
 
     checkAuth();
   }, [router]);
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      const response = await fetch(`/api/products?category=${activeCategory}`);
+      const data = await response.json();
+      setProducts(data);
+    };
+
+    fetchProducts();
+  }, [activeCategory]);
 
   return (
     <div className="h-screen bg-gray-900 text-white flex">
@@ -123,97 +134,26 @@ export default function ShopPage() {
 
             {/* Products */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {activeCategory === 'nitro' && (
-                <>
-                  <div className="bg-gray-800 rounded-lg p-6 hover:bg-gray-700 transition-colors">
-                    <div className="w-16 h-16 bg-yellow-500 rounded-lg flex items-center justify-center mb-4 mx-auto">
-                      <span className="text-2xl">⚡</span>
-                    </div>
-                    <h3 className="text-lg font-semibold mb-2 text-center">Nitro Classic</h3>
-                    <p className="text-sm text-gray-300 mb-4 text-center">Месячная подписка на Nitro</p>
-                    <div className="text-center mb-4">
-                      <span className="text-2xl font-bold">$4.99</span>
-                      <span className="text-gray-400">/месяц</span>
-                    </div>
-                    <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded">
-                      Купить
-                    </button>
-                  </div>
-                  <div className="bg-gray-800 rounded-lg p-6 hover:bg-gray-700 transition-colors">
-                    <div className="w-16 h-16 bg-purple-500 rounded-lg flex items-center justify-center mb-4 mx-auto">
-                      <span className="text-2xl">💎</span>
-                    </div>
-                    <h3 className="text-lg font-semibold mb-2 text-center">Nitro</h3>
-                    <p className="text-sm text-gray-300 mb-4 text-center">Полная подписка на Nitro</p>
-                    <div className="text-center mb-4">
-                      <span className="text-2xl font-bold">$9.99</span>
-                      <span className="text-gray-400">/месяц</span>
-                    </div>
-                    <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded">
-                      Купить
-                    </button>
-                  </div>
-                </>
-              )}
-              {activeCategory === 'emoji' && (
-                <>
-                  <div className="bg-gray-800 rounded-lg p-6 hover:bg-gray-700 transition-colors">
-                    <div className="w-16 h-16 bg-red-500 rounded-lg flex items-center justify-center mb-4 mx-auto">
-                      <span className="text-3xl">😀</span>
-                    </div>
-                    <h3 className="text-lg font-semibold mb-2 text-center">Смайлики Pack</h3>
-                    <p className="text-sm text-gray-300 mb-4 text-center">Набор веселых эмодзи</p>
-                    <div className="text-center mb-4">
-                      <span className="text-2xl font-bold">$2.99</span>
-                    </div>
-                    <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded">
-                      Купить
-                    </button>
-                  </div>
-                  <div className="bg-gray-800 rounded-lg p-6 hover:bg-gray-700 transition-colors">
+              {products.length === 0 ? (
+                <div className="col-span-full text-center py-8">
+                  <p className="text-gray-400">Товары загружаются...</p>
+                </div>
+              ) : (
+                products.map((product) => (
+                  <div key={product.id} className="bg-gray-800 rounded-lg p-6 hover:bg-gray-700 transition-colors">
                     <div className="w-16 h-16 bg-blue-500 rounded-lg flex items-center justify-center mb-4 mx-auto">
-                      <span className="text-3xl">🚀</span>
+                      <span className="text-3xl">{product.image_url || '📦'}</span>
                     </div>
-                    <h3 className="text-lg font-semibold mb-2 text-center">Космос Pack</h3>
-                    <p className="text-sm text-gray-300 mb-4 text-center">Эмодзи космической тематики</p>
+                    <h3 className="text-lg font-semibold mb-2 text-center">{product.name}</h3>
+                    <p className="text-sm text-gray-300 mb-4 text-center">{product.description}</p>
                     <div className="text-center mb-4">
-                      <span className="text-2xl font-bold">$3.99</span>
+                      <span className="text-2xl font-bold">${product.price}</span>
                     </div>
                     <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded">
                       Купить
                     </button>
                   </div>
-                </>
-              )}
-              {activeCategory === 'stickers' && (
-                <div className="bg-gray-800 rounded-lg p-6 hover:bg-gray-700 transition-colors">
-                  <div className="w-16 h-16 bg-green-500 rounded-lg flex items-center justify-center mb-4 mx-auto">
-                    <span className="text-3xl">🎨</span>
-                  </div>
-                  <h3 className="text-lg font-semibold mb-2 text-center">Арт Стикеры</h3>
-                  <p className="text-sm text-gray-300 mb-4 text-center">Креативные стикеры для чата</p>
-                  <div className="text-center mb-4">
-                    <span className="text-2xl font-bold">$1.99</span>
-                  </div>
-                  <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded">
-                    Купить
-                  </button>
-                </div>
-              )}
-              {activeCategory === 'boosts' && (
-                <div className="bg-gray-800 rounded-lg p-6 hover:bg-gray-700 transition-colors">
-                  <div className="w-16 h-16 bg-pink-500 rounded-lg flex items-center justify-center mb-4 mx-auto">
-                    <span className="text-3xl">🚀</span>
-                  </div>
-                  <h3 className="text-lg font-semibold mb-2 text-center">Буст сервера</h3>
-                  <p className="text-sm text-gray-300 mb-4 text-center">Улучшите ваш сервер</p>
-                  <div className="text-center mb-4">
-                    <span className="text-2xl font-bold">$4.99</span>
-                  </div>
-                  <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded">
-                    Купить
-                  </button>
-                </div>
+                ))
               )}
             </div>
           </div>
