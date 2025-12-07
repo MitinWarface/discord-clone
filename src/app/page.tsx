@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabase'
 
 interface HealthStatus {
   status: 'ok' | 'error'
@@ -13,8 +14,16 @@ interface HealthStatus {
 export default function Home() {
   const [health, setHealth] = useState<HealthStatus | null>(null)
   const [loading, setLoading] = useState(true)
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
 
   useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { user } } = await supabase!.auth.getUser()
+      setIsLoggedIn(!!user)
+    }
+
+    checkAuth()
+
     fetch('/api/health')
       .then(res => res.json())
       .then(setHealth)
@@ -40,7 +49,7 @@ export default function Home() {
           {/* Начало работы */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
             <a
-              href="/channels/me"
+              href={isLoggedIn ? '/channels/me' : '/register'}
               className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors inline-flex items-center justify-center"
             >
               <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">

@@ -12,6 +12,7 @@ export default function ChannelsMePage() {
   const [activeTab, setActiveTab] = useState('online');
   const [showAddServer, setShowAddServer] = useState(false);
   const [showCreateOwn, setShowCreateOwn] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
   const [serverName, setServerName] = useState('');
 
   useEffect(() => {
@@ -279,7 +280,13 @@ export default function ChannelsMePage() {
               </div>
 
               {/* Start with Template */}
-              <div className="bg-gray-700 rounded-lg p-4 hover:bg-gray-600 cursor-pointer transition-colors">
+              <div
+                className="bg-gray-700 rounded-lg p-4 hover:bg-gray-600 cursor-pointer transition-colors"
+                onClick={() => {
+                  setShowAddServer(false);
+                  setShowTemplates(true);
+                }}
+              >
                 <div className="flex items-center space-x-4">
                   <div className="w-12 h-12 bg-green-600 rounded-2xl flex items-center justify-center">
                     <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
@@ -391,6 +398,105 @@ export default function ChannelsMePage() {
                 disabled={!serverName.trim()}
               >
                 Создать
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Templates Modal */}
+      {showTemplates && (
+        <div className="fixed inset-0 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-lg p-6 w-[600px] max-h-[600px] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold">Выберите шаблон сервера</h3>
+              <button
+                onClick={() => {
+                  setShowTemplates(false);
+                  setShowAddServer(true);
+                }}
+                className="text-gray-400 hover:text-white"
+              >
+                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M18.3 5.71a.996.996 0 0 0-1.41 0L12 10.59 7.11 5.7A.996.996 0 1 0 5.7 7.11L10.59 12 5.7 16.89a.996.996 0 1 0 1.41 1.41L12 13.41l4.89 4.89a.996.996 0 1 0 1.41-1.41L13.41 12l4.89-4.89c.38-.39.38-1.02 0-1.4z"/>
+                </svg>
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Gaming */}
+              <div>
+                <h4 className="text-lg font-semibold mb-3 text-gray-300">Игры</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-gray-700 rounded-lg p-4 hover:bg-gray-600 cursor-pointer transition-colors">
+                    <div className="w-12 h-12 bg-red-600 rounded-lg flex items-center justify-center mb-3">
+                      <span className="text-xl">🎮</span>
+                    </div>
+                    <h5 className="font-semibold">Игровые друзья</h5>
+                    <p className="text-sm text-gray-400">Для игры с друзьями</p>
+                  </div>
+                  <div className="bg-gray-700 rounded-lg p-4 hover:bg-gray-600 cursor-pointer transition-colors">
+                    <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center mb-3">
+                      <span className="text-xl">🏆</span>
+                    </div>
+                    <h5 className="font-semibold">Эспорт</h5>
+                    <p className="text-sm text-gray-400">Для соревновательных игр</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Education */}
+              <div>
+                <h4 className="text-lg font-semibold mb-3 text-gray-300">Образование</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-gray-700 rounded-lg p-4 hover:bg-gray-600 cursor-pointer transition-colors">
+                    <div className="w-12 h-12 bg-green-600 rounded-lg flex items-center justify-center mb-3">
+                      <span className="text-xl">📚</span>
+                    </div>
+                    <h5 className="font-semibold">Учебная группа</h5>
+                    <p className="text-sm text-gray-400">Для совместного обучения</p>
+                  </div>
+                  <div className="bg-gray-700 rounded-lg p-4 hover:bg-gray-600 cursor-pointer transition-colors">
+                    <div className="w-12 h-12 bg-purple-600 rounded-lg flex items-center justify-center mb-3">
+                      <span className="text-xl">🎓</span>
+                    </div>
+                    <h5 className="font-semibold">Студенческий клуб</h5>
+                    <p className="text-sm text-gray-400">Для студентов</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Community */}
+              <div>
+                <h4 className="text-lg font-semibold mb-3 text-gray-300">Сообщество</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-gray-700 rounded-lg p-4 hover:bg-gray-600 cursor-pointer transition-colors">
+                    <div className="w-12 h-12 bg-yellow-600 rounded-lg flex items-center justify-center mb-3">
+                      <span className="text-xl">🌟</span>
+                    </div>
+                    <h5 className="font-semibold">Фан-сообщество</h5>
+                    <p className="text-sm text-gray-400">Для фанатов</p>
+                  </div>
+                  <div className="bg-gray-700 rounded-lg p-4 hover:bg-gray-600 cursor-pointer transition-colors">
+                    <div className="w-12 h-12 bg-pink-600 rounded-lg flex items-center justify-center mb-3">
+                      <span className="text-xl">🎨</span>
+                    </div>
+                    <h5 className="font-semibold">Творческое сообщество</h5>
+                    <p className="text-sm text-gray-400">Для творческих людей</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-start mt-6">
+              <button
+                onClick={() => {
+                  setShowTemplates(false);
+                  setShowAddServer(true);
+                }}
+                className="px-4 py-2 text-gray-300 hover:text-white"
+              >
+                Назад
               </button>
             </div>
           </div>
