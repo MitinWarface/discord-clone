@@ -36,6 +36,28 @@ export default function Home() {
           <p className="text-xl text-gray-300 mb-8">
             Полная копия Discord с использованием Next.js и Supabase
           </p>
+
+          {/* Начало работы */}
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
+            <a
+              href="/channels/me"
+              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors inline-flex items-center justify-center"
+            >
+              <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+              </svg>
+              Войти в приложение
+            </a>
+            <button
+              onClick={() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })}
+              className="bg-gray-700 hover:bg-gray-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors inline-flex items-center justify-center"
+            >
+              <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2Zm-1 15l-4-4 1.41-1.41L11 14.17l6.59-6.59L19 9l-8 8Z"/>
+              </svg>
+              Узнать больше
+            </button>
+          </div>
         </div>
 
         {/* Статус системы */}
@@ -125,6 +147,72 @@ export default function Home() {
               <p className="text-gray-300 mt-2">
                 Сервер запустится на <code className="bg-gray-700 px-2 py-1 rounded">http://localhost:3000</code>
               </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Возможности приложения */}
+        <div className="max-w-4xl mx-auto mt-12">
+          <h2 className="text-2xl font-semibold mb-6">Возможности приложения</h2>
+          <div className="grid md:grid-cols-3 gap-6">
+            <div className="bg-gray-800 rounded-lg p-6">
+              <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center mb-4">
+                <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2Zm-1 15l-4-4 1.41-1.41L11 14.17l6.59-6.59L19 9l-8 8Z"/>
+                </svg>
+              </div>
+              <h3 className="text-xl font-semibold mb-2">Серверы и каналы</h3>
+              <p className="text-gray-300">Создавайте и управляйте серверами, организуйте каналы для общения по темам.</p>
+            </div>
+
+            <div className="bg-gray-800 rounded-lg p-6">
+              <div className="w-12 h-12 bg-green-600 rounded-lg flex items-center justify-center mb-4">
+                <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 22a10 10 0 1 0-8.45-4.64c.13.19.11.44-.04.61l-2.06 2.37A1 1 0 0 0 2.2 22H12Z"/>
+                </svg>
+              </div>
+              <h3 className="text-xl font-semibold mb-2">Реал-тайм чат</h3>
+              <p className="text-gray-300">Общайтесь в текстовых каналах с мгновенными сообщениями и поддержкой markdown.</p>
+            </div>
+
+            <div className="bg-gray-800 rounded-lg p-6">
+              <div className="w-12 h-12 bg-purple-600 rounded-lg flex items-center justify-center mb-4">
+                <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+              </div>
+              <h3 className="text-xl font-semibold mb-2">Система друзей</h3>
+              <p className="text-gray-300">Добавляйте друзей, управляйте запросами и общайтесь в приватных чатах.</p>
+            </div>
+
+            <div className="bg-gray-800 rounded-lg p-6">
+              <div className="w-12 h-12 bg-yellow-600 rounded-lg flex items-center justify-center mb-4">
+                <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2Zm-1 15l-4-4 1.41-1.41L11 14.17l6.59-6.59L19 9l-8 8Z"/>
+                </svg>
+              </div>
+              <h3 className="text-xl font-semibold mb-2">Голосовые каналы</h3>
+              <p className="text-gray-300">Присоединяйтесь к голосовым каналам для аудио общения с друзьями.</p>
+            </div>
+
+            <div className="bg-gray-800 rounded-lg p-6">
+              <div className="w-12 h-12 bg-red-600 rounded-lg flex items-center justify-center mb-4">
+                <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+              </div>
+              <h3 className="text-xl font-semibold mb-2">Роли и разрешения</h3>
+              <p className="text-gray-300">Управляйте ролями пользователей и настройками разрешений на сервере.</p>
+            </div>
+
+            <div className="bg-gray-800 rounded-lg p-6">
+              <div className="w-12 h-12 bg-indigo-600 rounded-lg flex items-center justify-center mb-4">
+                <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+                </svg>
+              </div>
+              <h3 className="text-xl font-semibold mb-2">История сообщений</h3>
+              <p className="text-gray-300">Просматривайте историю сообщений и ищите по ключевым словам.</p>
             </div>
           </div>
         </div>
