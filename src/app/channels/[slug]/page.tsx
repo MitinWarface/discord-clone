@@ -1,12 +1,13 @@
 'use client'
 
 import { useEffect, useState } from 'react';
-import { useParams, usePathname } from 'next/navigation';
+import { useParams, usePathname, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
 export default function ChannelsMePage() {
   const { slug } = useParams();
   const pathname = usePathname();
+  const router = useRouter();
   const [friends, setFriends] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState('online');
 
@@ -33,6 +34,9 @@ export default function ChannelsMePage() {
   const filteredFriends = friends.filter(friend => {
     if (activeTab === 'online') return true; // Assume all are online for now
     if (activeTab === 'all') return true;
+    if (activeTab === 'pending') return false; // Placeholder
+    if (activeTab === 'blocked') return false; // Placeholder
+    if (activeTab === 'add-friend') return false; // No friends to show
     return false;
   });
 
@@ -59,14 +63,14 @@ export default function ChannelsMePage() {
         </div>
         <div className="flex-1 overflow-y-auto">
           <div className="p-2 space-y-1">
-            <div className={`flex items-center p-2 rounded cursor-pointer ${pathname === '/channels/@me' ? 'bg-gray-700 text-white' : 'hover:bg-gray-700'}`}>
-              <svg className={`w-6 h-6 mr-3 ${pathname === '/channels/@me' ? 'text-white' : 'text-gray-400'}`} fill="currentColor" viewBox="0 0 24 24">
+            <div className={`flex items-center p-2 rounded cursor-pointer ${pathname === '/channels/me' ? 'bg-gray-700 text-white' : 'hover:bg-gray-700'}`}>
+              <svg className={`w-6 h-6 mr-3 ${pathname === '/channels/me' ? 'text-white' : 'text-gray-400'}`} fill="currentColor" viewBox="0 0 24 24">
                 <path d="M13 10a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/>
                 <path d="M3 5v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2H5c-1.11 0-2 .9-2 2Zm12 10c0 1.66-1.34 3-3 3s-3-1.34-3-3 1.34-3 3-3 3 1.34 3 3Zm-9 4c0-.22.03-.42.06-.63C5.74 16.86 7.87 15 10 15s4.26 1.86 4.94 3.37c.03.2.06.41.06.63H6Zm8-7c0-.55-.45-1-1-1s-1 .45-1 1 .45 1 1 1 1-.45 1-1Z"/>
               </svg>
-              <span className={pathname === '/channels/@me' ? 'text-white' : 'text-gray-300'}>Друзья</span>
+              <span className={pathname === '/channels/me' ? 'text-white' : 'text-gray-300'}>Друзья</span>
             </div>
-            <div className={`flex items-center p-2 rounded cursor-pointer ${pathname === '/message-requests' ? 'bg-gray-700 text-white' : 'hover:bg-gray-700'}`}>
+            <div className={`flex items-center p-2 rounded cursor-pointer ${pathname === '/message-requests' ? 'bg-gray-700 text-white' : 'hover:bg-gray-700'}`} onClick={() => router.push('/message-requests')}>
               <svg className={`w-6 h-6 mr-3 ${pathname === '/message-requests' ? 'text-white' : 'text-gray-400'}`} fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2Zm-1 15l-4-4 1.41-1.41L11 14.17l6.59-6.59L19 9l-8 8Z"/>
               </svg>
@@ -135,10 +139,32 @@ export default function ChannelsMePage() {
               >
                 Заблокированные
               </button>
+              <button
+                onClick={() => setActiveTab('add-friend')}
+                className={`px-4 py-2 rounded-t text-sm font-medium ${
+                  activeTab === 'add-friend' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-gray-300'
+                }`}
+              >
+                Добавить в друзья
+              </button>
             </div>
 
             {/* Friends List */}
-            {filteredFriends.length === 0 ? (
+            {activeTab === 'add-friend' ? (
+              <div className="p-4">
+                <h3 className="text-lg font-semibold mb-4">Добавить в друзья</h3>
+                <div className="flex space-x-2">
+                  <input
+                    type="text"
+                    placeholder="Имя пользователя#0000"
+                    className="flex-1 px-3 py-2 bg-gray-700 text-white rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded">
+                    Отправить запрос
+                  </button>
+                </div>
+              </div>
+            ) : filteredFriends.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20">
                 <svg className="w-24 h-16 text-gray-600 mb-4" fill="currentColor" viewBox="0 0 376 162">
                   <path d="M0 0h376v162H0z" opacity=".1"/>
