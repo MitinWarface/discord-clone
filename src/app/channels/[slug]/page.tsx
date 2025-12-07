@@ -14,6 +14,9 @@ export default function ChannelsMePage() {
   const [showCreateOwn, setShowCreateOwn] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
   const [serverName, setServerName] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searching, setSearching] = useState(false);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -42,6 +45,20 @@ export default function ChannelsMePage() {
     checkAuth();
   }, [router]);
 
+  // Debounced search
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      searchUsers(searchQuery);
+    }, 300); // 300ms delay
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery]);
+
   const filteredFriends = friends.filter(friend => {
     if (activeTab === 'online') return true; // Assume all are online for now
     if (activeTab === 'all') return true;
@@ -49,6 +66,76 @@ export default function ChannelsMePage() {
     if (activeTab === 'add-friend') return false; // No friends to show
     return false;
   });
+
+  const searchUsers = async (query: string) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    setSearching(true);
+    try {
+      // For now, simulate search results. In real app, this would search users table
+      const mockResults = [
+        { id: '1', username: 'user123', display_name: 'User 123', avatar: '/default-avatar.png' },
+        { id: '2', username: 'gamer_pro', display_name: 'Gamer Pro', avatar: '/default-avatar.png' },
+        { id: '3', username: 'discord_fan', display_name: 'Discord Fan', avatar: '/default-avatar.png' },
+        { id: '4', username: 'test_user', display_name: 'Test User', avatar: '/default-avatar.png' },
+        { id: '5', username: 'dev_master', display_name: 'Dev Master', avatar: '/default-avatar.png' },
+        { id: '6', username: 'code_ninja', display_name: 'Code Ninja', avatar: '/default-avatar.png' },
+        { id: '7', username: 'pixel_artist', display_name: 'Pixel Artist', avatar: '/default-avatar.png' },
+      ].filter(user =>
+        user.username.toLowerCase().includes(query.toLowerCase()) ||
+        user.display_name.toLowerCase().includes(query.toLowerCase())
+      );
+
+      setSearchResults(mockResults);
+    } catch (error) {
+      console.error('Error searching users:', error);
+      setSearchResults([]);
+    }
+    setSearching(false);
+  };
+
+  const sendFriendRequest = async (userId: string) => {
+    try {
+      const { data: { user } } = await supabase!.auth.getUser();
+      if (!user) return;
+
+      // Check if request already exists
+      const { data: existingRequest } = await supabase!
+        .from('friends')
+        .select('*')
+        .or(`and(user_id.eq.${user.id},friend_id.eq.${userId}),and(user_id.eq.${userId},friend_id.eq.${user.id})`)
+        .single();
+
+      if (existingRequest) {
+        alert('Запрос уже отправлен или вы уже друзья!');
+        return;
+      }
+
+      // Send friend request
+      const { error } = await supabase!
+        .from('friends')
+        .insert({
+          user_id: user.id,
+          friend_id: userId,
+          status: 'pending'
+        });
+
+      if (error) {
+        console.error('Error sending friend request:', error);
+        alert('Ошибка при отправке запроса');
+      } else {
+        alert('Запрос в друзья отправлен!');
+        setSearchQuery('');
+        setSearchResults([]);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Ошибка при отправке запроса');
+    }
+  };
 
   return (
     <div className="h-screen bg-gray-900 text-white flex">
@@ -163,15 +250,61 @@ export default function ChannelsMePage() {
             {activeTab === 'add-friend' ? (
               <div className="p-4">
                 <h3 className="text-lg font-semibold mb-4">Добавить в друзья</h3>
-                <div className="flex space-x-2">
-                  <input
-                    type="text"
-                    placeholder="Имя пользователя#0000"
-                    className="flex-1 px-3 py-2 bg-gray-700 text-white rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded">
-                    Отправить запрос
-                  </button>
+                <div className="space-y-4">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Имя пользователя#0000"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full px-4 py-3 bg-gray-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10"
+                    />
+                    <svg className="w-5 h-5 text-gray-400 absolute right-3 top-3.5" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+                    </svg>
+                  </div>
+
+                  {searching && (
+                    <div className="text-center py-4">
+                      <p className="text-gray-400">Поиск...</p>
+                    </div>
+                  )}
+
+                  {searchResults.length > 0 && (
+                    <div className="bg-gray-700 rounded-lg max-h-60 overflow-y-auto">
+                      {searchResults.map((user) => (
+                        <div key={user.id} className="flex items-center justify-between p-3 hover:bg-gray-600 transition-colors border-b border-gray-600 last:border-b-0">
+                          <div className="flex items-center space-x-3">
+                            <img
+                              src={user.avatar}
+                              alt={user.display_name}
+                              className="w-8 h-8 rounded-full"
+                            />
+                            <div>
+                              <p className="text-white font-medium">{user.display_name}</p>
+                              <p className="text-gray-400 text-sm">{user.username}</p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => sendFriendRequest(user.id)}
+                            className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors"
+                          >
+                            Добавить
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {searchQuery && !searching && searchResults.length === 0 && (
+                    <div className="text-center py-8">
+                      <svg className="w-12 h-12 text-gray-600 mx-auto mb-3" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
+                      </svg>
+                      <p className="text-gray-400">Пользователь не найден</p>
+                      <p className="text-gray-500 text-sm mt-1">Проверьте правильность написания</p>
+                    </div>
+                  )}
                 </div>
               </div>
             ) : filteredFriends.length === 0 ? (
