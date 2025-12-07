@@ -154,8 +154,9 @@ CREATE POLICY "Server members and owners can create channels" ON channels FOR IN
 CREATE POLICY "Server members can update channels" ON channels FOR UPDATE USING (EXISTS (SELECT 1 FROM server_members WHERE server_members.server_id = channels.server_id AND server_members.user_id = auth.uid()));
 CREATE POLICY "Server members can delete channels" ON channels FOR DELETE USING (EXISTS (SELECT 1 FROM server_members WHERE server_members.server_id = channels.server_id AND server_members.user_id = auth.uid()));
 
--- Temporarily disable RLS for messages to debug
-ALTER TABLE messages DISABLE ROW LEVEL SECURITY;
+-- Enable RLS for messages
+ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Messages are viewable by server members" ON messages FOR SELECT USING (EXISTS (SELECT 1 FROM channels c JOIN server_members sm ON sm.server_id = c.server_id WHERE c.id = messages.channel_id AND sm.user_id = auth.uid()));
 CREATE POLICY "Server members can insert messages" ON messages FOR INSERT WITH CHECK (auth.uid() = user_id AND EXISTS (SELECT 1 FROM channels c JOIN server_members sm ON sm.server_id = c.server_id WHERE c.id = messages.channel_id AND sm.user_id = auth.uid()));
 CREATE POLICY "Users can update own messages" ON messages FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete own messages" ON messages FOR DELETE USING (auth.uid() = user_id);
@@ -283,11 +284,17 @@ CREATE TRIGGER create_default_roles_trigger AFTER INSERT ON servers FOR EACH ROW
 
 -- Permissions function
 CREATE OR REPLACE FUNCTION has_permission(user_id UUID, server_id UUID, permission_id TEXT) RETURNS BOOLEAN LANGUAGE plpgsql SECURITY DEFINER AS $$
-DECLARE user_permissions BIGINT := 0; role_record RECORD;
+DECLARE user_permissions BIGINT := 0; role_permissions BIGINT;
 BEGIN
   -- Check if user is server owner
   IF EXISTS (SELECT 1 FROM servers WHERE id = server_id AND owner_id = user_id) THEN RETURN TRUE; END IF;
-  FOR role_record IN SELECT r.permissions FROM server_members sm JOIN roles r ON r.id = sm.role_id WHERE sm.server_id = server_id AND sm.user_id = user_id LOOP user_permissions := user_permissions | role_record.permissions; END LOOP;
+
+  -- Get combined permissions from all user roles
+  SELECT COALESCE(bit_or(r.permissions), 0) INTO user_permissions
+  FROM server_members sm
+  JOIN roles r ON r.id = sm.role_id
+  WHERE sm.server_id = server_id AND sm.user_id = user_id;
+
   CASE permission_id
     WHEN 'manage_server' THEN RETURN (user_permissions & (1 << 0)) != 0;
     WHEN 'manage_roles' THEN RETURN (user_permissions & (1 << 1)) != 0;

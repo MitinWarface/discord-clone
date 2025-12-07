@@ -6,6 +6,18 @@ import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 import ReactMarkdown from 'react-markdown';
 
+interface ChannelItem {
+  id: string;
+  name?: string;
+  type: 'category' | 'channel';
+  position?: number;
+  server_id?: string;
+  category_id?: string | null;
+  created_at?: string;
+  updated_at?: string;
+  channels?: any[];
+}
+
 export default function ChannelsMePage() {
   const { slug } = useParams();
   const decodedSlug = typeof slug === 'string' ? decodeURIComponent(slug) : '';
@@ -31,7 +43,7 @@ export default function ChannelsMePage() {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searching, setSearching] = useState(false);
   const [servers, setServers] = useState<any[]>([]);
-  const [serverChannels, setServerChannels] = useState<any[]>([]);
+  const [serverChannels, setServerChannels] = useState<ChannelItem[]>([]);
   const [currentServer, setCurrentServer] = useState<any>(null);
   const [currentChannel, setCurrentChannel] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
@@ -216,19 +228,19 @@ export default function ChannelsMePage() {
               .order('position');
 
             // Combine categorized and uncategorized channels
-            const allChannels = [];
+            const allChannels: any[] = [];
             if (categories) {
-              categories.forEach(category => {
+              categories.forEach((category: any) => {
                 allChannels.push({ ...category, type: 'category' });
                 if (category.channels) {
-                  category.channels.forEach(channel => {
+                  category.channels.forEach((channel: any) => {
                     allChannels.push({ ...channel, type: 'channel' });
                   });
                 }
               });
             }
             if (uncategorizedChannels) {
-              uncategorizedChannels.forEach(channel => {
+              uncategorizedChannels.forEach((channel: any) => {
                 allChannels.push({ ...channel, type: 'channel' });
               });
             }
@@ -275,47 +287,62 @@ export default function ChannelsMePage() {
       setLoadingMore(false);
 
     const loadMessages = async () => {
-      const { data, error } = await supabase!
+      // First load messages without profiles
+      const { data: messagesData, error: messagesError } = await supabase!
         .from('messages')
-        .select(`
-          *,
-          profiles!messages_user_id_fkey (
-            username,
-            display_name,
-            avatar_url
-          )
-        `)
+        .select('*')
         .eq('channel_id', currentChannel.id)
         .order('created_at', { ascending: true })
         .limit(50);
 
-      if (error) {
-        console.error('Error loading messages:', error);
-      } else {
-        setMessages(data || []);
-        if (data && data.length < 50) {
+      if (messagesError) {
+        console.error('Error loading messages:', messagesError);
+        return;
+      }
+
+      // Then load profiles for the users
+      if (messagesData && messagesData.length > 0) {
+        const userIds = [...new Set(messagesData.map(m => m.user_id))];
+        const { data: profilesData, error: profilesError } = await supabase!
+          .from('profiles')
+          .select('id, username, display_name, avatar_url')
+          .in('id', userIds);
+
+        if (profilesError) {
+          console.error('Error loading profiles:', profilesError);
+        }
+
+        // Combine messages with profiles
+        const messagesWithProfiles = messagesData.map(message => ({
+          ...message,
+          profiles: profilesData?.find(p => p.id === message.user_id) || null
+        }));
+
+        setMessages(messagesWithProfiles);
+        if (messagesData.length < 50) {
           setHasMore(false);
         }
 
         // Load reactions for these messages
-        if (data && data.length > 0) {
-          const messageIds = data.map(m => m.id);
-          const { data: reactionsData, error: reactionsError } = await supabase!
-            .from('reactions')
-            .select('*')
-            .in('message_id', messageIds);
+        const messageIds = messagesData.map(m => m.id);
+        const { data: reactionsData, error: reactionsError } = await supabase!
+          .from('reactions')
+          .select('*')
+          .in('message_id', messageIds);
 
-          if (!reactionsError && reactionsData) {
-            const reactionsMap: {[messageId: number]: any[]} = {};
-            reactionsData.forEach(reaction => {
-              if (!reactionsMap[reaction.message_id]) {
-                reactionsMap[reaction.message_id] = [];
-              }
-              reactionsMap[reaction.message_id].push(reaction);
-            });
-            setReactions(reactionsMap);
-          }
+        if (!reactionsError && reactionsData) {
+          const reactionsMap: {[messageId: number]: any[]} = {};
+          reactionsData.forEach(reaction => {
+            if (!reactionsMap[reaction.message_id]) {
+              reactionsMap[reaction.message_id] = [];
+            }
+            reactionsMap[reaction.message_id].push(reaction);
+          });
+          setReactions(reactionsMap);
         }
+      } else {
+        setMessages([]);
+        setHasMore(false);
       }
     };
 
@@ -342,7 +369,7 @@ export default function ChannelsMePage() {
           .from('profiles')
           .select('username, display_name, avatar_url')
           .eq('id', payload.new.user_id)
-          .maybeSingle();
+          .single();
 
         const messageWithProfile = {
           ...payload.new,
@@ -614,26 +641,36 @@ export default function ChannelsMePage() {
     setLoadingMore(true);
     try {
       const oldestMessage = messages[0];
-      const { data, error } = await supabase!
+      const { data: messagesData, error: messagesError } = await supabase!
         .from('messages')
-        .select(`
-          *,
-          profiles!messages_user_id_fkey (
-            username,
-            display_name,
-            avatar_url
-          )
-        `)
+        .select('*')
         .eq('channel_id', currentChannel.id)
         .lt('created_at', oldestMessage.created_at)
         .order('created_at', { ascending: false })
         .limit(50);
 
-      if (error) {
-        console.error('Error loading more messages:', error);
+      if (messagesError) {
+        console.error('Error loading more messages:', messagesError);
       } else {
-        if (data && data.length > 0) {
-          setMessages(prev => [...data.reverse(), ...prev]);
+        if (messagesData && messagesData.length > 0) {
+          // Load profiles for new messages
+          const userIds = [...new Set(messagesData.map(m => m.user_id))];
+          const { data: profilesData, error: profilesError } = await supabase!
+            .from('profiles')
+            .select('id, username, display_name, avatar_url')
+            .in('id', userIds);
+
+          if (profilesError) {
+            console.error('Error loading profiles for more messages:', profilesError);
+          }
+
+          // Combine messages with profiles
+          const messagesWithProfiles = messagesData.map(message => ({
+            ...message,
+            profiles: profilesData?.find(p => p.id === message.user_id) || null
+          }));
+
+          setMessages(prev => [...messagesWithProfiles.reverse(), ...prev]);
         } else {
           setHasMore(false);
         }
@@ -1610,19 +1647,19 @@ export default function ChannelsMePage() {
                         .is('category_id', null)
                         .order('position');
 
-                      const allChannels = [];
+                      const allChannels: ChannelItem[] = [];
                       if (categories) {
-                        categories.forEach(category => {
+                        categories.forEach((category: any) => {
                           allChannels.push({ ...category, type: 'category' });
                           if (category.channels) {
-                            category.channels.forEach(channel => {
+                            category.channels.forEach((channel: any) => {
                               allChannels.push({ ...channel, type: 'channel' });
                             });
                           }
                         });
                       }
                       if (uncategorizedChannels) {
-                        uncategorizedChannels.forEach(channel => {
+                        uncategorizedChannels.forEach((channel: any) => {
                           allChannels.push({ ...channel, type: 'channel' });
                         });
                       }
