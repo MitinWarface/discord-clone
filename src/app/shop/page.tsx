@@ -8,6 +8,7 @@ export default function ShopPage() {
   const router = useRouter();
   const [activeCategory, setActiveCategory] = useState('nitro');
   const [products, setProducts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -25,13 +26,37 @@ export default function ShopPage() {
 
   useEffect(() => {
     const fetchProducts = async () => {
-      const response = await fetch(`/api/products?category=${activeCategory}`);
-      const data = await response.json();
-      setProducts(data);
+      setLoading(true);
+      try {
+        const response = await fetch(`/api/products?category=${activeCategory}`);
+        if (response.ok) {
+          const data = await response.json();
+          setProducts(data);
+        } else {
+          // Fallback to static data if API fails
+          setProducts(getStaticProducts(activeCategory));
+        }
+      } catch (error) {
+        console.error('Error fetching products:', error);
+        setProducts(getStaticProducts(activeCategory));
+      }
+      setLoading(false);
     };
 
     fetchProducts();
   }, [activeCategory]);
+
+  const getStaticProducts = (category: string) => {
+    const allProducts = [
+      { id: 1, name: 'Nitro Classic', description: 'Месячная подписка на Nitro', price: 4.99, category: 'nitro', image_url: '⚡' },
+      { id: 2, name: 'Nitro Full', description: 'Полная подписка на Nitro', price: 9.99, category: 'nitro', image_url: '💎' },
+      { id: 3, name: 'Смайлики Pack', description: 'Набор веселых эмодзи', price: 2.99, category: 'emoji', image_url: '😀' },
+      { id: 4, name: 'Космос Pack', description: 'Эмодзи космической тематики', price: 3.99, category: 'emoji', image_url: '🚀' },
+      { id: 5, name: 'Арт Стикеры', description: 'Креативные стикеры', price: 1.99, category: 'stickers', image_url: '🎨' },
+      { id: 6, name: 'Буст сервера', description: 'Улучшите ваш сервер', price: 4.99, category: 'boosts', image_url: '🚀' },
+    ];
+    return allProducts.filter(p => p.category === category);
+  };
 
   return (
     <div className="h-screen bg-gray-900 text-white flex">
@@ -134,9 +159,13 @@ export default function ShopPage() {
 
             {/* Products */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {products.length === 0 ? (
+              {loading ? (
                 <div className="col-span-full text-center py-8">
-                  <p className="text-gray-400">Товары загружаются...</p>
+                  <p className="text-gray-400">Загрузка товаров...</p>
+                </div>
+              ) : products.length === 0 ? (
+                <div className="col-span-full text-center py-8">
+                  <p className="text-gray-400">Товары не найдены</p>
                 </div>
               ) : (
                 products.map((product) => (
