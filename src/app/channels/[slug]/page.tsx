@@ -75,21 +75,16 @@ export default function ChannelsMePage() {
 
     setSearching(true);
     try {
-      // For now, simulate search results. In real app, this would search users table
-      const mockResults = [
-        { id: '1', username: 'user123', display_name: 'User 123', avatar: '/default-avatar.png' },
-        { id: '2', username: 'gamer_pro', display_name: 'Gamer Pro', avatar: '/default-avatar.png' },
-        { id: '3', username: 'discord_fan', display_name: 'Discord Fan', avatar: '/default-avatar.png' },
-        { id: '4', username: 'test_user', display_name: 'Test User', avatar: '/default-avatar.png' },
-        { id: '5', username: 'dev_master', display_name: 'Dev Master', avatar: '/default-avatar.png' },
-        { id: '6', username: 'code_ninja', display_name: 'Code Ninja', avatar: '/default-avatar.png' },
-        { id: '7', username: 'pixel_artist', display_name: 'Pixel Artist', avatar: '/default-avatar.png' },
-      ].filter(user =>
-        user.username.toLowerCase().includes(query.toLowerCase()) ||
-        user.display_name.toLowerCase().includes(query.toLowerCase())
-      );
+      // Search users in database using the search_users function
+      const { data, error } = await supabase!
+        .rpc('search_users', { search_term: query });
 
-      setSearchResults(mockResults);
+      if (error) {
+        console.error('Error searching users:', error);
+        setSearchResults([]);
+      } else {
+        setSearchResults(data || []);
+      }
     } catch (error) {
       console.error('Error searching users:', error);
       setSearchResults([]);
