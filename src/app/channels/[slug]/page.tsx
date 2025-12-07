@@ -66,11 +66,11 @@ export default function ChannelsMePage() {
               </svg>
               <span className={pathname === '/channels/@me' ? 'text-white' : 'text-gray-300'}>Друзья</span>
             </div>
-            <div className="flex items-center p-2 rounded hover:bg-gray-700 cursor-pointer">
-              <svg className="w-6 h-6 text-gray-400 mr-3" fill="currentColor" viewBox="0 0 24 24">
+            <div className={`flex items-center p-2 rounded cursor-pointer ${pathname === '/message-requests' ? 'bg-gray-700 text-white' : 'hover:bg-gray-700'}`}>
+              <svg className={`w-6 h-6 mr-3 ${pathname === '/message-requests' ? 'text-white' : 'text-gray-400'}`} fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2Zm-1 15l-4-4 1.41-1.41L11 14.17l6.59-6.59L19 9l-8 8Z"/>
               </svg>
-              <span className="text-gray-300">Запросы общения</span>
+              <span className={pathname === '/message-requests' ? 'text-white' : 'text-gray-300'}>Запросы общения</span>
             </div>
             <div className="flex items-center p-2 rounded hover:bg-gray-700 cursor-pointer">
               <svg className="w-6 h-6 text-yellow-400 mr-3" fill="currentColor" viewBox="0 0 24 24">
