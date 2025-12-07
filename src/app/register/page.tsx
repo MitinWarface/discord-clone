@@ -53,7 +53,7 @@ export default function RegisterPage() {
         // Создать профиль в таблице profiles
         const { error: profileError } = await supabase!
           .from('profiles')
-          .insert({
+          .upsert({
             id: data.user.id,
             username,
             email,
