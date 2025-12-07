@@ -1,10 +1,20 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 export const dynamic = 'force-dynamic'
+
+function MessageDisplay() {
+  const searchParams = useSearchParams()
+  const message = searchParams.get('message')
+  return message ? (
+    <div className="bg-blue-900 border border-blue-700 text-blue-200 px-4 py-3 rounded-md mb-4">
+      {message}
+    </div>
+  ) : null
+}
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -13,8 +23,6 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const message = searchParams.get('message')
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -87,11 +95,9 @@ export default function LoginPage() {
             />
           </div>
 
-          {message && (
-            <div className="bg-blue-900 border border-blue-700 text-blue-200 px-4 py-3 rounded-md">
-              {message}
-            </div>
-          )}
+          <Suspense fallback={null}>
+            <MessageDisplay />
+          </Suspense>
 
           {error && (
             <div className="bg-red-900 border border-red-700 text-red-200 px-4 py-3 rounded-md">
