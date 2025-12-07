@@ -17,7 +17,16 @@ export default function ChannelsMePage() {
   const [showAddServer, setShowAddServer] = useState(false);
   const [showCreateOwn, setShowCreateOwn] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
+  const [showJoinServer, setShowJoinServer] = useState(false);
+  const [showCreateChannel, setShowCreateChannel] = useState(false);
+  const [showServerSettings, setShowServerSettings] = useState(false);
   const [serverName, setServerName] = useState('');
+  const [channelName, setChannelName] = useState('');
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const [serverCategories, setServerCategories] = useState<any[]>([]);
+  const [selectedTemplate, setSelectedTemplate] = useState<string>('');
+  const [joinServerName, setJoinServerName] = useState('');
+  const [editServerName, setEditServerName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searching, setSearching] = useState(false);
@@ -119,11 +128,23 @@ export default function ChannelsMePage() {
             return;
           }
 
-          // Then get server details
+          // Then get server details with member roles
           const serverIds = memberships.map(m => m.server_id);
           const { data: serversData, error: serversError } = await supabase!
             .from('servers')
-            .select('id, name, icon_url')
+            .select(`
+              id,
+              name,
+              icon_url,
+              server_members!inner (
+                roles (
+                  id,
+                  name,
+                  color,
+                  permissions
+                )
+              )
+            `)
             .in('id', serverIds);
 
           if (serversError) {
@@ -142,29 +163,86 @@ export default function ChannelsMePage() {
       // If slug is a server ID, load server and channels
       if (decodedSlug !== 'me' && decodedSlug !== '@me') {
         const loadServerData = async () => {
+          console.log('Loading server data for slug:', decodedSlug, 'user.id:', user.id);
           // Check if user is member of this server
-          const { data: membership } = await supabase!
+          const { data: membership, error: membershipError } = await supabase!
             .from('server_members')
-            .select('*, servers(*)')
+            .select(`
+              *,
+              roles (
+                id,
+                name,
+                color,
+                permissions
+              )
+            `)
             .eq('server_id', decodedSlug)
             .eq('user_id', user.id)
             .maybeSingle();
 
           if (membership) {
+            // Get server details separately
+            const { data: serverData } = await supabase!
+              .from('servers')
+              .select('*')
+              .eq('id', decodedSlug)
+              .maybeSingle();
+
+            if (serverData) {
+              membership.servers = serverData;
+            }
+          }
+
+          console.log('Membership result:', membership, 'error:', membershipError);
+
+          if (membership) {
             setCurrentServer(membership.servers);
 
-            // Load channels
-            const { data: channels } = await supabase!
-              .from('channels')
-              .select('*')
+            // Load categories and channels
+            const { data: categories } = await supabase!
+              .from('categories')
+              .select(`
+                *,
+                channels (*)
+              `)
               .eq('server_id', decodedSlug)
               .order('position');
 
-            setServerChannels(channels || []);
+            const { data: uncategorizedChannels } = await supabase!
+              .from('channels')
+              .select('*')
+              .eq('server_id', decodedSlug)
+              .is('category_id', null)
+              .order('position');
+
+            // Combine categorized and uncategorized channels
+            const allChannels = [];
+            if (categories) {
+              categories.forEach(category => {
+                allChannels.push({ ...category, type: 'category' });
+                if (category.channels) {
+                  category.channels.forEach(channel => {
+                    allChannels.push({ ...channel, type: 'channel' });
+                  });
+                }
+              });
+            }
+            if (uncategorizedChannels) {
+              uncategorizedChannels.forEach(channel => {
+                allChannels.push({ ...channel, type: 'channel' });
+              });
+            }
+
+            setServerChannels(allChannels);
+
+            // Extract categories for channel creation
+            const categoriesOnly = allChannels.filter(item => item.type === 'category');
+            setServerCategories(categoriesOnly);
 
             // Set first channel as current if available
-            if (channels && channels.length > 0) {
-              setCurrentChannel(channels[0]);
+            const firstChannel = allChannels.find(item => item.type === 'channel');
+            if (firstChannel) {
+              setCurrentChannel(firstChannel);
             }
           } else {
             // Not a member, redirect to friends
@@ -183,15 +261,25 @@ export default function ChannelsMePage() {
   useEffect(() => {
     if (!currentChannel) return;
 
-    setHasMore(true);
-    setLoadingMore(false);
+    const setupRealtime = async () => {
+      // Check if user is authenticated
+      const { data: { user } } = await supabase!.auth.getUser();
+      if (!user) {
+        console.log('User not authenticated, skipping realtime subscriptions');
+        return;
+      }
+
+      console.log('Setting up realtime subscriptions for user:', user.id);
+
+      setHasMore(true);
+      setLoadingMore(false);
 
     const loadMessages = async () => {
       const { data, error } = await supabase!
         .from('messages')
         .select(`
           *,
-          profiles:user_id (
+          profiles!messages_user_id_fkey (
             username,
             display_name,
             avatar_url
@@ -242,6 +330,13 @@ export default function ChannelsMePage() {
         table: 'messages',
         filter: `channel_id=eq.${currentChannel.id}`
       }, async (payload) => {
+        console.log('New message received:', payload.new);
+
+        // Only process messages for current channel
+        if (payload.new.channel_id !== currentChannel.id) {
+          return;
+        }
+
         // Fetch profile for the new message
         const { data: profile } = await supabase!
           .from('profiles')
@@ -251,12 +346,22 @@ export default function ChannelsMePage() {
 
         const messageWithProfile = {
           ...payload.new,
-          profiles: profile
+          user_profile: profile
         };
 
-        setMessages(prev => [...prev, messageWithProfile]);
+        setMessages(prev => {
+          // Check if message already exists to avoid duplicates
+          const exists = prev.some(msg => msg.id === payload.new.id);
+          if (!exists) {
+            console.log('Adding new message to state:', messageWithProfile);
+            return [...prev, messageWithProfile];
+          }
+          return prev;
+        });
       })
-      .subscribe();
+      .subscribe((status, err) => {
+        console.log('Messages subscription status:', status, err);
+      });
 
     // Subscribe to reactions
     const reactionsChannel = supabase!
@@ -265,7 +370,23 @@ export default function ChannelsMePage() {
         event: '*',
         schema: 'public',
         table: 'reactions'
-      }, (payload) => {
+      }, async (payload) => {
+        console.log('Reaction change received:', payload);
+
+        // Check if this reaction belongs to a message in current channel
+        const messageId = (payload.new as any)?.message_id || (payload.old as any)?.message_id;
+        if (!messageId) return;
+
+        const { data: message } = await supabase!
+          .from('messages')
+          .select('channel_id')
+          .eq('id', messageId)
+          .maybeSingle();
+
+        if (!message || message.channel_id !== currentChannel.id) {
+          return;
+        }
+
         // Update reactions state
         setReactions(prev => {
           const newReactions = { ...prev };
@@ -275,7 +396,12 @@ export default function ChannelsMePage() {
             if (!newReactions[reaction.message_id]) {
               newReactions[reaction.message_id] = [];
             }
-            newReactions[reaction.message_id].push(reaction);
+            // Check if reaction already exists
+            const exists = newReactions[reaction.message_id].some(r => r.id === reaction.id);
+            if (!exists) {
+              console.log('Adding new reaction to state:', reaction);
+              newReactions[reaction.message_id].push(reaction);
+            }
           } else if (payload.eventType === 'DELETE') {
             const reaction = payload.old;
             if (newReactions[reaction.message_id]) {
@@ -287,12 +413,20 @@ export default function ChannelsMePage() {
           return newReactions;
         });
       })
-      .subscribe();
+      .subscribe((status, err) => {
+        console.log('Reactions subscription status:', status, err);
+      });
 
-    return () => {
-      supabase!.removeChannel(messagesChannel);
-      supabase!.removeChannel(reactionsChannel);
+      setupRealtime();
+
+      return () => {
+        console.log('Cleaning up subscriptions for channel:', currentChannel.id);
+        messagesChannel.unsubscribe();
+        reactionsChannel.unsubscribe();
+      };
     };
+
+    setupRealtime();
   }, [currentChannel]);
 
   // Debounced search
@@ -484,7 +618,7 @@ export default function ChannelsMePage() {
         .from('messages')
         .select(`
           *,
-          profiles:user_id (
+          profiles!messages_user_id_fkey (
             username,
             display_name,
             avatar_url
@@ -560,29 +694,58 @@ export default function ChannelsMePage() {
 
       {/* Channels Sidebar */}
       <div className="w-60 bg-gray-800 flex flex-col">
-        <div className="p-4 border-b border-gray-700">
-          <h2 className="text-sm font-semibold text-gray-300">
+        <div className="p-4 border-b border-gray-700 flex items-center justify-between">
+          <h2
+            className={`text-sm font-semibold text-gray-300 ${currentServer ? 'cursor-pointer hover:text-white' : ''}`}
+            onClick={() => currentServer && setShowServerSettings(true)}
+          >
             {currentServer ? currentServer.name : 'Друзья'}
           </h2>
+          {currentServer && (
+            <button
+              onClick={() => setShowCreateChannel(true)}
+              className="text-gray-400 hover:text-white p-1 rounded hover:bg-gray-600 transition-colors"
+              title="Создать канал"
+            >
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+              </svg>
+            </button>
+          )}
         </div>
         <div className="flex-1 overflow-y-auto">
           <div className="p-2 space-y-1">
             {currentServer ? (
-              // Server channels
-              serverChannels.map((channel) => (
-                <div
-                  key={channel.id}
-                  className={`flex items-center p-2 rounded cursor-pointer ${
-                    currentChannel?.id === channel.id ? 'bg-gray-600 text-white' : 'hover:bg-gray-700 text-gray-300'
-                  }`}
-                  onClick={() => handleChannelClick(channel)}
-                >
-                  <svg className="w-6 h-6 mr-3 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2Zm-1 15l-4-4 1.41-1.41L11 14.17l6.59-6.59L19 9l-8 8Z"/>
-                  </svg>
-                  <span>#{channel.name}</span>
-                </div>
-              ))
+              // Server channels with categories
+              serverChannels.map((item) => {
+                if (item.type === 'category') {
+                  return (
+                    <div key={item.id} className="mb-2">
+                      <div className="flex items-center px-2 py-1 text-xs font-semibold text-gray-400 uppercase tracking-wide hover:text-gray-300 cursor-pointer">
+                        <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M7 10l5 5 5-5z"/>
+                        </svg>
+                        {item.name}
+                      </div>
+                    </div>
+                  );
+                } else {
+                  return (
+                    <div
+                      key={item.id}
+                      className={`flex items-center p-2 rounded cursor-pointer ml-2 ${
+                        currentChannel?.id === item.id ? 'bg-gray-600 text-white' : 'hover:bg-gray-700 text-gray-300'
+                      }`}
+                      onClick={() => handleChannelClick(item)}
+                    >
+                      <svg className="w-6 h-6 mr-3 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2Zm-1 15l-4-4 1.41-1.41L11 14.17l6.59-6.59L19 9l-8 8Z"/>
+                      </svg>
+                      <span>#{item.name}</span>
+                    </div>
+                  );
+                }
+              })
             ) : (
               // Friends menu
               <>
@@ -709,13 +872,13 @@ export default function ChannelsMePage() {
                       return (
                         <div key={message.id} className="flex items-start space-x-3 group">
                           <img
-                            src={message.profiles?.avatar_url || '/assets/66e90ab9506850e8a5dd48e3_Discrod_MainLogo.svg'}
-                            alt={message.profiles?.display_name}
+                            src={message.user_profile?.avatar_url || '/assets/66e90ab9506850e8a5dd48e3_Discrod_MainLogo.svg'}
+                            alt={message.user_profile?.display_name}
                             className="w-10 h-10 rounded-full"
                           />
                           <div className="flex-1">
                             <div className="flex items-baseline space-x-2">
-                              <span className="text-white font-semibold">{message.profiles?.display_name}</span>
+                              <span className="text-white font-semibold">{message.user_profile?.display_name}</span>
                               <span className="text-gray-400 text-xs">
                                 {new Date(message.created_at).toLocaleString('ru-RU')}
                               </span>
@@ -1025,7 +1188,13 @@ export default function ChannelsMePage() {
               </div>
 
               {/* Join Server */}
-              <div className="bg-gray-700 rounded-lg p-4 hover:bg-gray-600 cursor-pointer transition-colors">
+              <div
+                className="bg-gray-700 rounded-lg p-4 hover:bg-gray-600 cursor-pointer transition-colors"
+                onClick={() => {
+                  setShowAddServer(false);
+                  setShowJoinServer(true);
+                }}
+              >
                 <div className="flex items-center space-x-4">
                   <div className="w-12 h-12 bg-purple-600 rounded-2xl flex items-center justify-center">
                     <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
@@ -1034,7 +1203,7 @@ export default function ChannelsMePage() {
                   </div>
                   <div>
                     <h4 className="text-lg font-semibold">Присоединиться к серверу</h4>
-                    <p className="text-gray-300 text-sm">Войдите на сервер по приглашению</p>
+                    <p className="text-gray-300 text-sm">Войдите на сервер по названию</p>
                   </div>
                 </div>
               </div>
@@ -1115,59 +1284,52 @@ export default function ChannelsMePage() {
                     const { data: { user } } = await supabase!.auth.getUser();
                     if (!user) return;
 
-                    // Create server
-                    const { data: server, error: serverError } = await supabase!
-                      .from('servers')
-                      .insert({
-                        name: serverName.trim(),
-                        owner_id: user.id,
-                        icon_url: null,
-                        created_at: new Date().toISOString(),
-                        updated_at: new Date().toISOString()
-                      })
-                      .select()
-                      .single();
+                    let serverId;
 
-                    if (serverError) {
-                      console.error('Error creating server:', serverError);
-                      toast.error('Ошибка при создании сервера');
-                      return;
-                    }
+                    if (selectedTemplate) {
+                      // Use template RPC function
+                      console.log('Creating server with template:', selectedTemplate);
+                      const { data: result, error: templateError } = await supabase!
+                        .rpc('create_server_with_template', {
+                          server_name: serverName.trim(),
+                          owner_id: user.id,
+                          template_type: selectedTemplate
+                        });
 
-                    // Create default channel
-                    const { error: channelError } = await supabase!
-                      .from('channels')
-                      .insert({
-                        server_id: server.id,
-                        name: 'general',
-                        type: 'text',
-                        position: 0,
-                        created_at: new Date().toISOString(),
-                        updated_at: new Date().toISOString()
-                      });
+                      if (templateError) {
+                        console.error('Error creating server with template:', templateError);
+                        toast.error('Ошибка при создании сервера с шаблоном');
+                        return;
+                      }
 
-                    if (channelError) {
-                      console.error('Error creating channel:', channelError);
-                      // Continue anyway
-                    }
+                      serverId = result;
+                      console.log('Server created with template, ID:', serverId);
+                    } else {
+                      // Create server manually
+                      const { data: server, error: serverError } = await supabase!
+                        .from('servers')
+                        .insert({
+                          name: serverName.trim(),
+                          owner_id: user.id,
+                          icon_url: null,
+                          created_at: new Date().toISOString(),
+                          updated_at: new Date().toISOString()
+                        })
+                        .select()
+                        .single();
 
-                    // Add owner as member
-                    const { error: memberError } = await supabase!
-                      .from('server_members')
-                      .insert({
-                        server_id: server.id,
-                        user_id: user.id,
-                        role: 'owner',
-                        joined_at: new Date().toISOString()
-                      });
+                      if (serverError) {
+                        console.error('Error creating server:', serverError);
+                        toast.error('Ошибка при создании сервера');
+                        return;
+                      }
 
-                    if (memberError) {
-                      console.error('Error adding member:', memberError);
-                      // Continue anyway
+                      serverId = server.id;
                     }
 
                     toast.success(`Сервер "${serverName}" создан!`);
                     setServerName('');
+                    setSelectedTemplate('');
                     setShowCreateOwn(false);
 
                     // Refresh servers list
@@ -1189,7 +1351,7 @@ export default function ChannelsMePage() {
                     }
 
                     // Redirect to the new server
-                    router.push(`/channels/${server.id}`);
+                    router.push(`/channels/${serverId}`);
                   } catch (error) {
                     console.error('Error:', error);
                     toast.error('Ошибка при создании сервера');
@@ -1233,14 +1395,28 @@ export default function ChannelsMePage() {
               <div>
                 <h4 className="text-lg font-semibold mb-3 text-gray-300">Игры</h4>
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-gray-700 rounded-lg p-4 hover:bg-gray-600 cursor-pointer transition-colors">
+                  <div
+                    className="bg-gray-700 rounded-lg p-4 hover:bg-gray-600 cursor-pointer transition-colors"
+                    onClick={() => {
+                      setSelectedTemplate('gaming_friends');
+                      setShowTemplates(false);
+                      setShowCreateOwn(true);
+                    }}
+                  >
                     <div className="w-12 h-12 bg-red-600 rounded-lg flex items-center justify-center mb-3">
                       <span className="text-xl">🎮</span>
                     </div>
                     <h5 className="font-semibold">Игровые друзья</h5>
                     <p className="text-sm text-gray-400">Для игры с друзьями</p>
                   </div>
-                  <div className="bg-gray-700 rounded-lg p-4 hover:bg-gray-600 cursor-pointer transition-colors">
+                  <div
+                    className="bg-gray-700 rounded-lg p-4 hover:bg-gray-600 cursor-pointer transition-colors"
+                    onClick={() => {
+                      setSelectedTemplate('esports');
+                      setShowTemplates(false);
+                      setShowCreateOwn(true);
+                    }}
+                  >
                     <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center mb-3">
                       <span className="text-xl">🏆</span>
                     </div>
@@ -1254,14 +1430,28 @@ export default function ChannelsMePage() {
               <div>
                 <h4 className="text-lg font-semibold mb-3 text-gray-300">Образование</h4>
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-gray-700 rounded-lg p-4 hover:bg-gray-600 cursor-pointer transition-colors">
+                  <div
+                    className="bg-gray-700 rounded-lg p-4 hover:bg-gray-600 cursor-pointer transition-colors"
+                    onClick={() => {
+                      setSelectedTemplate('study_group');
+                      setShowTemplates(false);
+                      setShowCreateOwn(true);
+                    }}
+                  >
                     <div className="w-12 h-12 bg-green-600 rounded-lg flex items-center justify-center mb-3">
                       <span className="text-xl">📚</span>
                     </div>
                     <h5 className="font-semibold">Учебная группа</h5>
                     <p className="text-sm text-gray-400">Для совместного обучения</p>
                   </div>
-                  <div className="bg-gray-700 rounded-lg p-4 hover:bg-gray-600 cursor-pointer transition-colors">
+                  <div
+                    className="bg-gray-700 rounded-lg p-4 hover:bg-gray-600 cursor-pointer transition-colors"
+                    onClick={() => {
+                      setSelectedTemplate('student_club');
+                      setShowTemplates(false);
+                      setShowCreateOwn(true);
+                    }}
+                  >
                     <div className="w-12 h-12 bg-purple-600 rounded-lg flex items-center justify-center mb-3">
                       <span className="text-xl">🎓</span>
                     </div>
@@ -1275,14 +1465,28 @@ export default function ChannelsMePage() {
               <div>
                 <h4 className="text-lg font-semibold mb-3 text-gray-300">Сообщество</h4>
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-gray-700 rounded-lg p-4 hover:bg-gray-600 cursor-pointer transition-colors">
+                  <div
+                    className="bg-gray-700 rounded-lg p-4 hover:bg-gray-600 cursor-pointer transition-colors"
+                    onClick={() => {
+                      setSelectedTemplate('fan_community');
+                      setShowTemplates(false);
+                      setShowCreateOwn(true);
+                    }}
+                  >
                     <div className="w-12 h-12 bg-yellow-600 rounded-lg flex items-center justify-center mb-3">
                       <span className="text-xl">🌟</span>
                     </div>
                     <h5 className="font-semibold">Фан-сообщество</h5>
                     <p className="text-sm text-gray-400">Для фанатов</p>
                   </div>
-                  <div className="bg-gray-700 rounded-lg p-4 hover:bg-gray-600 cursor-pointer transition-colors">
+                  <div
+                    className="bg-gray-700 rounded-lg p-4 hover:bg-gray-600 cursor-pointer transition-colors"
+                    onClick={() => {
+                      setSelectedTemplate('creative_community');
+                      setShowTemplates(false);
+                      setShowCreateOwn(true);
+                    }}
+                  >
                     <div className="w-12 h-12 bg-pink-600 rounded-lg flex items-center justify-center mb-3">
                       <span className="text-xl">🎨</span>
                     </div>
@@ -1302,6 +1506,432 @@ export default function ChannelsMePage() {
                 className="px-4 py-2 text-gray-300 hover:text-white"
               >
                 Назад
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Channel Modal */}
+      {showCreateChannel && (
+        <div className="fixed inset-0 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-lg p-6 w-[400px]">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold">Создать канал</h3>
+              <button
+                onClick={() => setShowCreateChannel(false)}
+                className="text-gray-400 hover:text-white"
+              >
+                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M18.3 5.71a.996.996 0 0 0-1.41 0L12 10.59 7.11 5.7A.996.996 0 1 0 5.7 7.11L10.59 12 5.7 16.89a.996.996 0 1 0 1.41 1.41L12 13.41l4.89 4.89a.996.996 0 1 0 1.41-1.41L13.41 12l4.89-4.89c.38-.39.38-1.02 0-1.4z"/>
+                </svg>
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">НАЗВАНИЕ КАНАЛА</label>
+                <input
+                  type="text"
+                  placeholder="новый-канал"
+                  value={channelName}
+                  onChange={(e) => setChannelName(e.target.value)}
+                  className="w-full px-3 py-2 bg-gray-700 text-white rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">КАТЕГОРИЯ</label>
+                <select
+                  value={selectedCategoryId || ''}
+                  onChange={(e) => setSelectedCategoryId(e.target.value || null)}
+                  className="w-full px-3 py-2 bg-gray-700 text-white rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Без категории</option>
+                  {serverCategories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="flex justify-end mt-6 space-x-3">
+              <button
+                onClick={() => setShowCreateChannel(false)}
+                className="px-4 py-2 text-gray-300 hover:text-white"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={async () => {
+                  if (!channelName.trim() || !currentServer) return;
+
+                  try {
+                    const { data: { user } } = await supabase!.auth.getUser();
+                    if (!user) return;
+
+                    const { error } = await supabase!
+                      .from('channels')
+                      .insert({
+                        server_id: currentServer.id,
+                        category_id: selectedCategoryId,
+                        name: channelName.trim().toLowerCase().replace(/\s+/g, '-'),
+                        type: 'text',
+                        position: serverChannels.filter(item => item.type === 'channel' && item.category_id === selectedCategoryId).length,
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString()
+                      });
+
+                    if (error) {
+                      console.error('Error creating channel:', error);
+                      toast.error('Ошибка при создании канала');
+                    } else {
+                      toast.success(`Канал #${channelName} создан!`);
+                      setChannelName('');
+                      setSelectedCategoryId(null);
+                      setShowCreateChannel(false);
+
+                      // Refresh channels with categories
+                      const { data: categories } = await supabase!
+                        .from('categories')
+                        .select(`
+                          *,
+                          channels (*)
+                        `)
+                        .eq('server_id', currentServer.id)
+                        .order('position');
+
+                      const { data: uncategorizedChannels } = await supabase!
+                        .from('channels')
+                        .select('*')
+                        .eq('server_id', currentServer.id)
+                        .is('category_id', null)
+                        .order('position');
+
+                      const allChannels = [];
+                      if (categories) {
+                        categories.forEach(category => {
+                          allChannels.push({ ...category, type: 'category' });
+                          if (category.channels) {
+                            category.channels.forEach(channel => {
+                              allChannels.push({ ...channel, type: 'channel' });
+                            });
+                          }
+                        });
+                      }
+                      if (uncategorizedChannels) {
+                        uncategorizedChannels.forEach(channel => {
+                          allChannels.push({ ...channel, type: 'channel' });
+                        });
+                      }
+
+                      setServerChannels(allChannels);
+                    }
+                  } catch (error) {
+                    console.error('Error:', error);
+                    toast.error('Ошибка при создании канала');
+                  }
+                }}
+                className={`px-4 py-2 rounded ${
+                  channelName.trim()
+                    ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                    : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                }`}
+                disabled={!channelName.trim()}
+              >
+                Создать канал
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Server Settings Modal */}
+      {showServerSettings && currentServer && (
+        <div className="fixed inset-0 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-lg p-6 w-[500px] max-h-[600px] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold">Настройки сервера</h3>
+              <button
+                onClick={() => setShowServerSettings(false)}
+                className="text-gray-400 hover:text-white"
+              >
+                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M18.3 5.71a.996.996 0 0 0-1.41 0L12 10.59 7.11 5.7A.996.996 0 1 0 5.7 7.11L10.59 12 5.7 16.89a.996.996 0 1 0 1.41 1.41L12 13.41l4.89 4.89a.996.996 0 1 0 1.41-1.41L13.41 12l4.89-4.89c.38-.39.38-1.02 0-1.4z"/>
+                </svg>
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              {/* Server Overview */}
+              <div>
+                <h4 className="text-lg font-semibold mb-4">Обзор сервера</h4>
+                <div className="flex items-center space-x-4 mb-4">
+                  <div className="w-16 h-16 bg-gray-600 rounded-full flex items-center justify-center">
+                    {currentServer.icon_url ? (
+                      <img src={currentServer.icon_url} alt={currentServer.name} className="w-16 h-16 rounded-full" />
+                    ) : (
+                      <span className="text-2xl font-bold text-white">
+                        {currentServer.name.charAt(0).toUpperCase()}
+                      </span>
+                    )}
+                  </div>
+                  <div>
+                    <h5 className="text-xl font-semibold">{currentServer.name}</h5>
+                    <p className="text-gray-400 text-sm">
+                      Создан {new Date(currentServer.created_at).toLocaleDateString('ru-RU')}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Server Name Edit */}
+              <div>
+                <label className="block text-sm font-medium mb-2">НАЗВАНИЕ СЕРВЕРА</label>
+                <input
+                  type="text"
+                  value={editServerName || currentServer.name}
+                  onChange={(e) => setEditServerName(e.target.value)}
+                  className="w-full px-3 py-2 bg-gray-700 text-white rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              {/* Roles Section */}
+              <div>
+                <h4 className="text-lg font-semibold mb-4">Роли</h4>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between p-3 bg-gray-700 rounded">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-4 h-4 bg-red-500 rounded"></div>
+                      <span className="font-semibold">Admin</span>
+                    </div>
+                    <span className="text-gray-400 text-sm">Владелец</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-gray-700 rounded">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-4 h-4 bg-gray-400 rounded"></div>
+                      <span>@everyone</span>
+                    </div>
+                    <span className="text-gray-400 text-sm">Все участники</span>
+                  </div>
+                </div>
+                <button className="w-full mt-3 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded transition-colors">
+                  Создать роль
+                </button>
+              </div>
+
+              {/* Danger Zone */}
+              <div className="border-t border-red-600 pt-6">
+                <h4 className="text-lg font-semibold text-red-400 mb-4">Опасная зона</h4>
+                <div className="space-y-4">
+                  <div className="p-4 bg-red-900/20 border border-red-600 rounded">
+                    <h5 className="font-semibold text-red-400 mb-2">Удалить сервер</h5>
+                    <p className="text-sm text-gray-300 mb-3">
+                      После удаления сервера восстановить его будет невозможно.
+                    </p>
+                    <button className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded text-sm transition-colors">
+                      Удалить сервер
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end mt-6 space-x-3">
+              <button
+                onClick={() => setShowServerSettings(false)}
+                className="px-4 py-2 text-gray-300 hover:text-white"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={async () => {
+                  if (!editServerName.trim() || editServerName === currentServer.name) {
+                    setShowServerSettings(false);
+                    return;
+                  }
+
+                  try {
+                    const { error } = await supabase!
+                      .from('servers')
+                      .update({
+                        name: editServerName.trim(),
+                        updated_at: new Date().toISOString()
+                      })
+                      .eq('id', currentServer.id);
+
+                    if (error) {
+                      console.error('Error updating server:', error);
+                      toast.error('Ошибка при обновлении сервера');
+                    } else {
+                      toast.success('Сервер обновлен!');
+                      setEditServerName('');
+                      setShowServerSettings(false);
+
+                      // Refresh current server data
+                      const { data: updatedServer } = await supabase!
+                        .from('servers')
+                        .select('*')
+                        .eq('id', currentServer.id)
+                        .maybeSingle();
+
+                      if (updatedServer) {
+                        setCurrentServer(updatedServer);
+                      }
+                    }
+                  } catch (error) {
+                    console.error('Error:', error);
+                    toast.error('Ошибка при обновлении сервера');
+                  }
+                }}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
+              >
+                Сохранить изменения
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Join Server Modal */}
+      {showJoinServer && (
+        <div className="fixed inset-0 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-lg p-6 w-[400px]">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold">Присоединиться к серверу</h3>
+              <button
+                onClick={() => setShowJoinServer(false)}
+                className="text-gray-400 hover:text-white"
+              >
+                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M18.3 5.71a.996.996 0 0 0-1.41 0L12 10.59 7.11 5.7A.996.996 0 1 0 5.7 7.11L10.59 12 5.7 16.89a.996.996 0 1 0 1.41 1.41L12 13.41l4.89 4.89a.996.996 0 1 0 1.41-1.41L13.41 12l4.89-4.89c.38-.39.38-1.02 0-1.4z"/>
+                </svg>
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">НАЗВАНИЕ СЕРВЕРА</label>
+                <input
+                  type="text"
+                  placeholder="Введите название сервера"
+                  value={joinServerName}
+                  onChange={(e) => setJoinServerName(e.target.value)}
+                  className="w-full px-3 py-2 bg-gray-700 text-white rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end mt-6 space-x-3">
+              <button
+                onClick={() => setShowJoinServer(false)}
+                className="px-4 py-2 text-gray-300 hover:text-white"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={async () => {
+                  if (!joinServerName.trim()) return;
+
+                  try {
+                    const { data: { user } } = await supabase!.auth.getUser();
+                    if (!user) return;
+
+                    // Find server by name
+                    const { data: server, error: serverError } = await supabase!
+                      .from('servers')
+                      .select('*')
+                      .ilike('name', joinServerName.trim())
+                      .maybeSingle();
+
+                    if (serverError) {
+                      console.error('Error finding server:', serverError);
+                      toast.error('Ошибка при поиске сервера');
+                      return;
+                    }
+
+                    if (!server) {
+                      toast.error('Сервер с таким названием не найден');
+                      return;
+                    }
+
+                    // Check if user is already a member
+                    const { data: existingMember } = await supabase!
+                      .from('server_members')
+                      .select('*')
+                      .eq('server_id', server.id)
+                      .eq('user_id', user.id)
+                      .maybeSingle();
+
+                    if (existingMember) {
+                      toast.error('Вы уже состоите в этом сервере');
+                      return;
+                    }
+
+                    // Get the default role (@everyone)
+                    const { data: defaultRole } = await supabase!
+                      .from('roles')
+                      .select('id')
+                      .eq('server_id', server.id)
+                      .eq('name', '@everyone')
+                      .maybeSingle();
+
+                    // Join server
+                    const { error: joinError } = await supabase!
+                      .from('server_members')
+                      .insert({
+                        server_id: server.id,
+                        user_id: user.id,
+                        role_id: defaultRole?.id || null,
+                        joined_at: new Date().toISOString()
+                      });
+
+                    if (joinError) {
+                      console.error('Error joining server:', joinError);
+                      toast.error('Ошибка при присоединении к серверу');
+                      return;
+                    }
+
+                    toast.success(`Вы присоединились к серверу "${server.name}"!`);
+
+                    // Refresh servers list
+                    const { data: updatedServers } = await supabase!
+                      .from('server_members')
+                      .select(`
+                        server_id,
+                        servers (
+                          id,
+                          name,
+                          icon_url
+                        )
+                      `)
+                      .eq('user_id', user.id);
+
+                    if (updatedServers) {
+                      const serverList = updatedServers.map(item => item.servers).filter(Boolean);
+                      setServers(serverList);
+                    }
+
+                    setJoinServerName('');
+                    setShowJoinServer(false);
+
+                    // Redirect to the server
+                    router.push(`/channels/${server.id}`);
+                  } catch (error) {
+                    console.error('Error:', error);
+                    toast.error('Ошибка при присоединении к серверу');
+                  }
+                }}
+                className={`px-4 py-2 rounded ${
+                  joinServerName.trim()
+                    ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                    : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                }`}
+                disabled={!joinServerName.trim()}
+              >
+                Присоединиться
               </button>
             </div>
           </div>

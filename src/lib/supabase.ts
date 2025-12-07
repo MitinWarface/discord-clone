@@ -35,6 +35,9 @@ export interface Database {
         Row: {
           id: string
           username: string | null
+          username_base: string | null
+          discriminator: number | null
+          display_name: string | null
           email: string | null
           avatar_url: string | null
           created_at: string
@@ -43,6 +46,9 @@ export interface Database {
         Insert: {
           id: string
           username?: string | null
+          username_base?: string | null
+          discriminator?: number | null
+          display_name?: string | null
           email?: string | null
           avatar_url?: string | null
           created_at?: string
@@ -51,6 +57,9 @@ export interface Database {
         Update: {
           id?: string
           username?: string | null
+          username_base?: string | null
+          discriminator?: number | null
+          display_name?: string | null
           email?: string | null
           avatar_url?: string | null
           created_at?: string
@@ -86,11 +95,38 @@ export interface Database {
           updated_at?: string
         }
       }
+      categories: {
+        Row: {
+          id: string
+          name: string
+          server_id: string
+          position: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          server_id: string
+          position?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          server_id?: string
+          position?: number
+          created_at?: string
+          updated_at?: string
+        }
+      }
       channels: {
         Row: {
           id: string
           name: string
           server_id: string
+          category_id: string | null
           type: 'text' | 'voice'
           position: number
           created_at: string
@@ -100,6 +136,7 @@ export interface Database {
           id?: string
           name: string
           server_id: string
+          category_id?: string | null
           type?: 'text' | 'voice'
           position?: number
           created_at?: string
@@ -109,6 +146,7 @@ export interface Database {
           id?: string
           name?: string
           server_id?: string
+          category_id?: string | null
           type?: 'text' | 'voice'
           position?: number
           created_at?: string
@@ -121,6 +159,7 @@ export interface Database {
           content: string
           user_id: string
           channel_id: string
+          message_type: string
           created_at: string
           updated_at: string
         }
@@ -129,6 +168,7 @@ export interface Database {
           content: string
           user_id: string
           channel_id: string
+          message_type?: string
           created_at?: string
           updated_at?: string
         }
@@ -137,6 +177,7 @@ export interface Database {
           content?: string
           user_id?: string
           channel_id?: string
+          message_type?: string
           created_at?: string
           updated_at?: string
         }
@@ -172,22 +213,117 @@ export interface Database {
           id: string
           server_id: string
           user_id: string
-          role: string
+          role_id: string | null
           joined_at: string
         }
         Insert: {
           id?: string
           server_id: string
           user_id: string
-          role?: string
+          role_id?: string | null
           joined_at?: string
         }
         Update: {
           id?: string
           server_id?: string
           user_id?: string
-          role?: string
+          role_id?: string | null
           joined_at?: string
+        }
+      }
+      roles: {
+        Row: {
+          id: string
+          server_id: string
+          name: string
+          color: string
+          position: number
+          permissions: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          server_id: string
+          name: string
+          color?: string
+          position?: number
+          permissions?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          server_id?: string
+          name?: string
+          color?: string
+          position?: number
+          permissions?: number
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      permissions: {
+        Row: {
+          id: string
+          name: string
+          description: string | null
+          category: string
+        }
+        Insert: {
+          id: string
+          name: string
+          description?: string | null
+          category: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          description?: string | null
+          category?: string
+        }
+      }
+      role_permissions: {
+        Row: {
+          id: string
+          role_id: string
+          permission_id: string
+          granted: boolean
+        }
+        Insert: {
+          id?: string
+          role_id: string
+          permission_id: string
+          granted?: boolean
+        }
+        Update: {
+          id?: string
+          role_id?: string
+          permission_id?: string
+          granted?: boolean
+        }
+      }
+      reactions: {
+        Row: {
+          id: string
+          message_id: string
+          user_id: string
+          emoji: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          message_id: string
+          user_id: string
+          emoji: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          message_id?: string
+          user_id?: string
+          emoji?: string
+          created_at?: string
         }
       }
     }
