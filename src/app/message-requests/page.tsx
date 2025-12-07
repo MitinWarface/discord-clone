@@ -26,33 +26,7 @@ export default function MessageRequestsPage() {
 
       if (profileError) {
         console.error('Error fetching profile:', profileError);
-        // Создаем профиль, если не найден
-        const { data: userData } = await supabase!.auth.getUser();
-        if (userData.user) {
-          const { error: createError } = await supabase!
-            .from('profiles')
-            .insert({
-              id: userData.user.id,
-              username: userData.user.user_metadata?.username || 'User',
-              display_name: userData.user.user_metadata?.username || 'User',
-              avatar_url: null,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            });
-
-          if (createError) {
-            console.error('Error creating profile:', createError);
-          } else {
-            // Повторно загружаем профиль
-            const { data: newProfile } = await supabase!
-              .from('profiles')
-              .select('*')
-              .eq('id', user.id)
-              .single();
-
-            if (newProfile) setUserProfile(newProfile);
-          }
-        }
+        // Профиль должен создаваться автоматически триггером при регистрации
       } else {
         setUserProfile(profile);
       }
