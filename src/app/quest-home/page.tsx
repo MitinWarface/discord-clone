@@ -1,11 +1,23 @@
 'use client'
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
+interface Quest {
+  id: number;
+  title: string;
+  description: string;
+  reward: string;
+  progress: number;
+  total: number;
+  completed: boolean;
+}
+
 export default function QuestHomePage() {
   const router = useRouter();
+  const [quests, setQuests] = useState<Quest[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -19,7 +31,60 @@ export default function QuestHomePage() {
     };
 
     checkAuth();
+
+    // Load quests - for now using static data, can be extended to load from DB
+    const staticQuests: Quest[] = [
+      {
+        id: 1,
+        title: 'Пригласить друга',
+        description: 'Пригласите 1 друга в Discord',
+        reward: '50 XP',
+        progress: 0,
+        total: 1,
+        completed: false
+      },
+      {
+        id: 2,
+        title: 'Отправить сообщение',
+        description: 'Отправьте 10 сообщений',
+        reward: '25 XP',
+        progress: 5,
+        total: 10,
+        completed: false
+      },
+      {
+        id: 3,
+        title: 'Присоединиться к серверу',
+        description: 'Присоединитесь к 3 серверам',
+        reward: '30 XP',
+        progress: 2,
+        total: 3,
+        completed: false
+      },
+      {
+        id: 4,
+        title: 'Добавить реакцию',
+        description: 'Добавьте 5 реакций на сообщения',
+        reward: '15 XP',
+        progress: 5,
+        total: 5,
+        completed: true
+      }
+    ];
+
+    setQuests(staticQuests);
+    setLoading(false);
   }, [router]);
+
+  const claimReward = (questId: number) => {
+    setQuests(quests.map(quest =>
+      quest.id === questId
+        ? { ...quest, completed: true }
+        : quest
+    ));
+    // Here you would typically send request to backend to claim reward
+    alert('Награда получена!');
+  };
 
   return (
     <div className="h-screen bg-gray-900 text-white flex">
@@ -84,28 +149,64 @@ export default function QuestHomePage() {
         </div>
         <div className="flex-1 overflow-y-auto">
           <div className="p-4">
-            <div className="text-center py-20">
-              <h2 className="text-2xl font-bold mb-4">Ежедневные задания</h2>
-              <p className="text-gray-300 mb-8">Выполняйте задания и получайте награды</p>
-              <div className="space-y-4 max-w-md mx-auto">
-                <div className="bg-gray-800 rounded-lg p-4">
-                  <h3 className="text-lg font-semibold mb-2">Пригласить друга</h3>
-                  <p className="text-sm text-gray-300 mb-4">Пригласите 1 друга в Discord</p>
-                  <div className="w-full bg-gray-700 rounded-full h-2 mb-2">
-                    <div className="bg-blue-600 h-2 rounded-full" style={{ width: '0%' }}></div>
-                  </div>
-                  <p className="text-xs text-gray-400">0/1 выполнено</p>
+            {loading ? (
+              <div className="text-center py-20">
+                <p className="text-gray-400">Загрузка заданий...</p>
+              </div>
+            ) : (
+              <div className="max-w-4xl mx-auto">
+                <div className="text-center mb-8">
+                  <h2 className="text-2xl font-bold mb-4">Ежедневные задания</h2>
+                  <p className="text-gray-300">Выполняйте задания и получайте награды</p>
                 </div>
-                <div className="bg-gray-800 rounded-lg p-4">
-                  <h3 className="text-lg font-semibold mb-2">Отправить сообщение</h3>
-                  <p className="text-sm text-gray-300 mb-4">Отправьте 10 сообщений</p>
-                  <div className="w-full bg-gray-700 rounded-full h-2 mb-2">
-                    <div className="bg-blue-600 h-2 rounded-full" style={{ width: '50%' }}></div>
-                  </div>
-                  <p className="text-xs text-gray-400">5/10 выполнено</p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {quests.map((quest) => (
+                    <div key={quest.id} className="bg-gray-800 rounded-lg p-6 hover:bg-gray-700 transition-all duration-300">
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex-1">
+                          <h3 className="text-lg font-semibold mb-2">{quest.title}</h3>
+                          <p className="text-sm text-gray-300 mb-4">{quest.description}</p>
+                          <div className="flex items-center space-x-2 mb-2">
+                            <span className="text-yellow-400 font-semibold">{quest.reward}</span>
+                            {quest.completed && (
+                              <span className="text-green-400 text-sm">✓ Выполнено</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-2xl">
+                          {quest.completed ? '🎉' : '📋'}
+                        </div>
+                      </div>
+
+                      <div className="mb-4">
+                        <div className="flex justify-between text-sm text-gray-400 mb-2">
+                          <span>Прогресс</span>
+                          <span>{quest.progress}/{quest.total}</span>
+                        </div>
+                        <div className="w-full bg-gray-700 rounded-full h-3">
+                          <div
+                            className={`h-3 rounded-full transition-all duration-500 ${
+                              quest.completed ? 'bg-green-500' : 'bg-blue-500'
+                            }`}
+                            style={{ width: `${(quest.progress / quest.total) * 100}%` }}
+                          ></div>
+                        </div>
+                      </div>
+
+                      {quest.progress >= quest.total && !quest.completed && (
+                        <button
+                          onClick={() => claimReward(quest.id)}
+                          className="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded transition-colors"
+                        >
+                          Получить награду
+                        </button>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
@@ -115,8 +216,38 @@ export default function QuestHomePage() {
         <div className="p-4 border-b border-gray-700">
           <h2 className="text-sm font-semibold text-gray-300">Прогресс</h2>
         </div>
-        <div className="flex-1 overflow-y-auto p-2">
-          {/* Placeholder for progress */}
+        <div className="flex-1 overflow-y-auto p-4">
+          <div className="space-y-4">
+            <div className="bg-gray-700 rounded-lg p-4">
+              <h3 className="font-semibold mb-2">Общий прогресс</h3>
+              <div className="text-2xl font-bold text-blue-400 mb-2">
+                {Math.round((quests.filter(q => q.completed).length / quests.length) * 100)}%
+              </div>
+              <div className="w-full bg-gray-600 rounded-full h-2">
+                <div
+                  className="bg-blue-500 h-2 rounded-full transition-all duration-500"
+                  style={{ width: `${(quests.filter(q => q.completed).length / quests.length) * 100}%` }}
+                ></div>
+              </div>
+              <p className="text-xs text-gray-400 mt-2">
+                {quests.filter(q => q.completed).length} из {quests.length} заданий выполнено
+              </p>
+            </div>
+
+            <div className="bg-gray-700 rounded-lg p-4">
+              <h3 className="font-semibold mb-2">Награды</h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span>XP заработано:</span>
+                  <span className="text-yellow-400">120</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Уровень:</span>
+                  <span className="text-blue-400">3</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

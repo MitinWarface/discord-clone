@@ -6,9 +6,13 @@ import { supabase } from '@/lib/supabase';
 
 export default function ShopPage() {
   const router = useRouter();
-  const [activeCategory, setActiveCategory] = useState('nitro');
+  const [activeCategory, setActiveCategory] = useState('all');
   const [products, setProducts] = useState<any[]>([]);
+  const [filteredProducts, setFilteredProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [priceFilter, setPriceFilter] = useState('all');
+  const [cart, setCart] = useState<any[]>([]);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -22,13 +26,20 @@ export default function ShopPage() {
     };
 
     checkAuth();
+
+    // Load cart from localStorage
+    const savedCart = localStorage.getItem('discord-cart');
+    if (savedCart) {
+      setCart(JSON.parse(savedCart));
+    }
   }, [router]);
 
   useEffect(() => {
     const fetchProducts = async () => {
       setLoading(true);
       try {
-        const response = await fetch(`/api/products?category=${activeCategory}`);
+        const categoryParam = activeCategory === 'all' ? '' : `?category=${activeCategory}`;
+        const response = await fetch(`/api/products${categoryParam}`);
         if (response.ok) {
           const data = await response.json();
           if (data.length > 0) {
@@ -51,6 +62,35 @@ export default function ShopPage() {
     fetchProducts();
   }, [activeCategory]);
 
+  useEffect(() => {
+    let filtered = products;
+
+    // Filter by search query
+    if (searchQuery) {
+      filtered = filtered.filter(product =>
+        product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        product.description.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    // Filter by price
+    if (priceFilter !== 'all') {
+      switch (priceFilter) {
+        case 'under-5':
+          filtered = filtered.filter(product => product.price < 5);
+          break;
+        case '5-10':
+          filtered = filtered.filter(product => product.price >= 5 && product.price <= 10);
+          break;
+        case 'over-10':
+          filtered = filtered.filter(product => product.price > 10);
+          break;
+      }
+    }
+
+    setFilteredProducts(filtered);
+  }, [products, searchQuery, priceFilter]);
+
   const getStaticProducts = (category: string) => {
     const allProducts = [
       { id: 1, name: 'Nitro Classic', description: 'Месячная подписка на Nitro', price: 4.99, category: 'nitro', image_url: '⚡' },
@@ -60,7 +100,29 @@ export default function ShopPage() {
       { id: 5, name: 'Арт Стикеры', description: 'Креативные стикеры', price: 1.99, category: 'stickers', image_url: '🎨' },
       { id: 6, name: 'Буст сервера', description: 'Улучшите ваш сервер', price: 4.99, category: 'boosts', image_url: '🚀' },
     ];
-    return allProducts.filter(p => p.category === category);
+    return category === 'all' ? allProducts : allProducts.filter(p => p.category === category);
+  };
+
+  const addToCart = (product: any) => {
+    const existingItem = cart.find(item => item.id === product.id);
+    let newCart;
+
+    if (existingItem) {
+      newCart = cart.map(item =>
+        item.id === product.id
+          ? { ...item, quantity: item.quantity + 1 }
+          : item
+      );
+    } else {
+      newCart = [...cart, { ...product, quantity: 1 }];
+    }
+
+    setCart(newCart);
+    localStorage.setItem('discord-cart', JSON.stringify(newCart));
+  };
+
+  const getCartTotal = () => {
+    return cart.reduce((total, item) => total + (item.price * item.quantity), 0).toFixed(2);
   };
 
   return (
@@ -121,11 +183,103 @@ export default function ShopPage() {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
-        <div className="p-4 border-b border-gray-700">
+        <div className="p-4 border-b border-gray-700 flex justify-between items-center">
           <h1 className="text-xl font-semibold">Магазин</h1>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => router.push('/cart')}
+              className="relative p-2 text-gray-400 hover:text-white"
+            >
+              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M7 4V2C7 1.45 6.55 1 6 1S5 1.45 5 2v2H4c-.55 0-1 .45-1 1s.45 1 1 1h1v10c0 1.1.9 2 2 2h6c1.1 0 2-.9 2-2V6h1c.55 0 1-.45 1-1s-.45-1-1-1h-1V4c0-.55-.45-1-1-1s-1 .45-1 1v2H7z"/>
+              </svg>
+              {cart.length > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                  {cart.reduce((total, item) => total + item.quantity, 0)}
+                </span>
+              )}
+            </button>
+            <span className="text-sm text-gray-400">${getCartTotal()}</span>
+          </div>
         </div>
         <div className="flex-1 overflow-y-auto">
           <div className="p-4">
+            {/* Search and Filters */}
+            <div className="mb-6 space-y-4">
+              {/* Search */}
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Поиск товаров..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full px-4 py-2 bg-gray-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 pl-10"
+                />
+                <svg className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+                </svg>
+              </div>
+
+              {/* Filters */}
+              <div className="flex flex-wrap gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Категория</label>
+                  <select
+                    value={activeCategory}
+                    onChange={(e) => setActiveCategory(e.target.value)}
+                    className="px-3 py-2 bg-gray-700 text-white rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="all">Все</option>
+                    <option value="nitro">Nitro</option>
+                    <option value="emoji">Эмодзи</option>
+                    <option value="stickers">Стикеры</option>
+                    <option value="boosts">Бусты</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Цена</label>
+                  <select
+                    value={priceFilter}
+                    onChange={(e) => setPriceFilter(e.target.value)}
+                    className="px-3 py-2 bg-gray-700 text-white rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="all">Все цены</option>
+                    <option value="under-5">До $5</option>
+                    <option value="5-10">$5 - $10</option>
+                    <option value="over-10">Более $10</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Recommended Products */}
+            {!loading && filteredProducts.length > 0 && (
+              <div className="mb-8">
+                <h2 className="text-xl font-semibold mb-4">Рекомендуемые товары</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {filteredProducts.slice(0, 4).map((product) => (
+                    <div key={`rec-${product.id}`} className="bg-gray-800 rounded-lg p-3 hover:bg-gray-700 transition-all duration-200 hover:scale-105">
+                      <div className="w-full h-20 bg-gray-700 rounded-lg flex items-center justify-center text-2xl mb-3">
+                        {product.image_url || '📦'}
+                      </div>
+                      <h4 className="font-semibold text-sm mb-1 truncate">{product.name}</h4>
+                      <p className="text-xs text-gray-400 mb-2 line-clamp-2">{product.description}</p>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-bold">${product.price}</span>
+                        <button
+                          onClick={() => addToCart(product)}
+                          className="bg-blue-600 hover:bg-blue-700 text-white py-1 px-2 rounded text-xs transition-colors"
+                        >
+                          Купить
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Categories */}
             <div className="flex space-x-1 mb-6">
               <button
@@ -168,14 +322,14 @@ export default function ShopPage() {
                 <div className="col-span-full text-center py-8">
                   <p className="text-gray-400">Загрузка товаров...</p>
                 </div>
-              ) : products.length === 0 ? (
+              ) : filteredProducts.length === 0 ? (
                 <div className="col-span-full text-center py-8">
                   <p className="text-gray-400">Товары не найдены</p>
                 </div>
               ) : (
-                products.map((product) => (
-                  <div key={product.id} className="bg-gray-800 rounded-lg p-6 hover:bg-gray-700 transition-colors">
-                    <div className="w-16 h-16 bg-blue-500 rounded-lg flex items-center justify-center mb-4 mx-auto">
+                filteredProducts.map((product) => (
+                  <div key={product.id} className="bg-gray-800 rounded-lg p-6 hover:bg-gray-700 transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
+                    <div className="w-16 h-16 bg-blue-500 rounded-lg flex items-center justify-center mb-4 mx-auto transition-transform duration-300 hover:scale-110">
                       <span className="text-3xl">{product.image_url || '📦'}</span>
                     </div>
                     <h3 className="text-lg font-semibold mb-2 text-center">{product.name}</h3>
@@ -183,8 +337,11 @@ export default function ShopPage() {
                     <div className="text-center mb-4">
                       <span className="text-2xl font-bold">${product.price}</span>
                     </div>
-                    <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded">
-                      Купить
+                    <button
+                      onClick={() => addToCart(product)}
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded transition-all duration-200 hover:shadow-md"
+                    >
+                      Добавить в корзину
                     </button>
                   </div>
                 ))
