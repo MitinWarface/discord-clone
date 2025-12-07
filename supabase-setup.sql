@@ -1,7 +1,21 @@
 -- =========================================
 -- Discord Clone Database Setup
--- Полная настройка базы данных для Discord-клона
+-- ПОЛНАЯ ПЕРЕИНИЦИАЛИЗАЦИЯ БАЗЫ ДАННЫХ
 -- =========================================
+
+-- Удаление всех политик RLS (перед удалением таблиц)
+DO $$
+DECLARE
+    pol record;
+BEGIN
+    FOR pol IN
+        SELECT schemaname, tablename, policyname
+        FROM pg_policies
+        WHERE schemaname = 'public'
+    LOOP
+        EXECUTE format('DROP POLICY IF EXISTS %I ON %I.%I', pol.policyname, pol.schemaname, pol.tablename);
+    END LOOP;
+END $$;
 
 -- Удаление существующих таблиц (для полной переинициализации)
 DO $$
@@ -414,14 +428,8 @@ DROP POLICY IF EXISTS "Users can join servers" ON server_members;
 DROP POLICY IF EXISTS "Server members can view memberships" ON server_members;
 DROP POLICY IF EXISTS "Server admins can manage members" ON server_members;
 
-CREATE POLICY "Server members can view memberships" ON server_members
-  FOR SELECT USING (
-    EXISTS (
-      SELECT 1 FROM server_members sm
-      WHERE sm.server_id = server_members.server_id
-      AND sm.user_id = auth.uid()
-    )
-  );
+CREATE POLICY "Authenticated users can view server memberships" ON server_members
+  FOR SELECT USING (auth.role() = 'authenticated');
 
 CREATE POLICY "Users can join servers" ON server_members
   FOR INSERT WITH CHECK (auth.uid() = user_id);

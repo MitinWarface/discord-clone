@@ -46,11 +46,16 @@ export default function ChannelsMePage() {
         .from('profiles')
         .select('*')
         .eq('id', user.id)
-        .single();
+        .maybeSingle(); // Используем maybeSingle вместо single
 
       if (profileError) {
         console.error('Error fetching profile:', profileError);
-        // Создаем профиль, если не найден
+      } else if (profile) {
+        console.log('Profile loaded:', profile);
+        setUserProfile(profile);
+      } else {
+        // Профиль не найден, создаем новый
+        console.log('Profile not found, creating new one...');
         const { data: userData } = await supabase!.auth.getUser();
         if (userData.user) {
           const { error: createError } = await supabase!
@@ -74,7 +79,7 @@ export default function ChannelsMePage() {
               .from('profiles')
               .select('*')
               .eq('id', user.id)
-              .single();
+              .maybeSingle();
 
             if (newProfile) {
               console.log('Profile created and loaded:', newProfile);
@@ -82,9 +87,6 @@ export default function ChannelsMePage() {
             }
           }
         }
-      } else {
-        console.log('Profile loaded:', profile);
-        setUserProfile(profile);
       }
 
       const getFriends = async () => {
@@ -145,7 +147,7 @@ export default function ChannelsMePage() {
             .select('*, servers(*)')
             .eq('server_id', decodedSlug)
             .eq('user_id', user.id)
-            .single();
+            .maybeSingle();
 
           if (membership) {
             setCurrentServer(membership.servers);
@@ -244,7 +246,7 @@ export default function ChannelsMePage() {
           .from('profiles')
           .select('username, display_name, avatar_url')
           .eq('id', payload.new.user_id)
-          .single();
+          .maybeSingle();
 
         const messageWithProfile = {
           ...payload.new,
