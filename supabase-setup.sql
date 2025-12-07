@@ -12,13 +12,17 @@
 
 CREATE TABLE profiles (
   id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
-  username TEXT UNIQUE NOT NULL,
+  username TEXT UNIQUE NOT NULL, -- Полный ник: Name#1234
+  username_base TEXT NOT NULL, -- Базовое имя без дискриминатора
+  discriminator INTEGER NOT NULL CHECK (discriminator >= 1 AND discriminator <= 9999), -- 4-значное число
   display_name TEXT NOT NULL,
+  email TEXT,
   avatar_url TEXT DEFAULT '/default-avatar.png',
   xp INTEGER DEFAULT 0,
   level INTEGER DEFAULT 1,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(username_base, discriminator) -- Уникальная комбинация имени и дискриминатора
 );
 
 -- RLS для profiles
@@ -244,32 +248,35 @@ CREATE INDEX idx_server_members_user_id ON server_members(user_id);
 -- =========================================
 
 -- Триггер для автоматического создания профиля пользователя
+-- Создает профиль только если username передан в meta данных
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 DECLARE
-  user_username TEXT;
+  base_name TEXT;
+  user_discriminator INTEGER;
+  full_username TEXT;
   user_display_name TEXT;
 BEGIN
-  -- Получаем данные из meta или используем email
-  user_username := COALESCE(NEW.raw_user_meta_data->>'username', split_part(NEW.email, '@', 1));
-  user_display_name := COALESCE(NEW.raw_user_meta_data->>'display_name', user_username);
+  -- Проверяем, есть ли username в meta данных
+  IF NEW.raw_user_meta_data->>'username' IS NOT NULL THEN
+    base_name := NEW.raw_user_meta_data->>'username';
+    user_display_name := COALESCE(NEW.raw_user_meta_data->>'display_name', base_name);
 
-  -- Проверяем уникальность username
-  IF EXISTS (SELECT 1 FROM profiles WHERE username = user_username) THEN
-    user_username := user_username || '_' || substr(NEW.id::text, 1, 4);
+    -- Генерируем уникальный дискриминатор
+    user_discriminator := generate_discriminator(base_name);
+
+    -- Создаем полный username
+    full_username := base_name || '#' || lpad(user_discriminator::TEXT, 4, '0');
+
+    -- Вставляем профиль
+    INSERT INTO public.profiles (id, username, username_base, discriminator, display_name)
+    VALUES (NEW.id, full_username, base_name, user_discriminator, user_display_name);
   END IF;
-
-  -- Вставляем профиль
-  INSERT INTO public.profiles (id, username, display_name)
-  VALUES (NEW.id, user_username, user_display_name);
 
   RETURN NEW;
 EXCEPTION
   WHEN OTHERS THEN
-    -- Fallback: создаем профиль с гарантированно уникальным username
-    INSERT INTO public.profiles (id, username, display_name)
-    VALUES (NEW.id, 'user_' || substr(NEW.id::text, 1, 8), 'User')
-    ON CONFLICT (id) DO NOTHING;
+    -- Не создаем fallback профиль, пусть приложение само обработает
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -322,9 +329,9 @@ INSERT INTO products (name, description, price, category, image_url) VALUES
 -- Тестовые профили пользователей (для поиска)
 -- В реальном приложении пользователи создаются через auth
 -- Раскомментируйте и замените на реальные user ID после создания пользователей:
--- INSERT INTO profiles (id, username, display_name, avatar_url, xp, level) VALUES
--- ('real-user-id-1', 'user123', 'User 123', '/default-avatar.png', 150, 2),
--- ('real-user-id-2', 'gamer_pro', 'Gamer Pro', '/default-avatar.png', 300, 3);
+-- INSERT INTO profiles (id, username, username_base, discriminator, display_name, avatar_url, xp, level) VALUES
+-- ('real-user-id-1', 'user123#0001', 'user123', 1, 'User 123', '/default-avatar.png', 150, 2),
+-- ('real-user-id-2', 'gamer_pro#0002', 'gamer_pro', 2, 'Gamer Pro', '/default-avatar.png', 300, 3);
 
 -- Функция для создания тестовых заданий (вызывать после регистрации пользователя)
 CREATE OR REPLACE FUNCTION create_default_quests(user_uuid UUID)
@@ -342,6 +349,29 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- =========================================
 -- ДОПОЛНИТЕЛЬНЫЕ ФУНКЦИИ
 -- =========================================
+
+-- Функция для генерации уникального дискриминатора
+CREATE OR REPLACE FUNCTION generate_discriminator(base_name TEXT)
+RETURNS INTEGER AS $$
+DECLARE
+  discriminator INTEGER;
+BEGIN
+  -- Пытаемся найти свободный дискриминатор
+  SELECT MIN(d) INTO discriminator
+  FROM generate_series(1, 9999) AS d
+  WHERE NOT EXISTS (
+    SELECT 1 FROM profiles
+    WHERE username_base = base_name AND profiles.discriminator = d
+  );
+
+  -- Если все заняты, возвращаем случайный (хотя маловероятно)
+  IF discriminator IS NULL THEN
+    discriminator := floor(random() * 9999 + 1)::INTEGER;
+  END IF;
+
+  RETURN discriminator;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Функция для поиска пользователей
 CREATE OR REPLACE FUNCTION search_users(search_term TEXT)
@@ -361,6 +391,7 @@ BEGIN
   FROM profiles p
   WHERE
     p.username ILIKE '%' || search_term || '%' OR
+    p.username_base ILIKE '%' || search_term || '%' OR
     p.display_name ILIKE '%' || search_term || '%'
   LIMIT 10;
 END;
@@ -423,7 +454,8 @@ GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO authenticated;
 
 -- Тестовые запросы:
 -- SELECT * FROM products WHERE is_active = true;
--- SELECT * FROM search_users('test');
--- SELECT * FROM profiles LIMIT 5;
+-- SELECT * FROM search_users('user123');
+-- SELECT username, username_base, discriminator FROM profiles LIMIT 5;
+-- SELECT generate_discriminator('testuser');
 
 COMMIT;
