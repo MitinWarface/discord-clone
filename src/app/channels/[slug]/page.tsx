@@ -71,64 +71,60 @@ export default function ChannelsMePage() {
               </div>
             </div>
             <div className="content__133bf">
-              <div className="friendsTable__133bf">
-                <div className="friendsTableHeader__133bf">
-                  <div className="friendsTableHeaderInner__133bf">
-                    <div className="tabBar__133bf">
-                      <div className="tabBarItem__133bf selected__133bf" role="tab" aria-selected="true" tabIndex={0}>
-                        <div className="item__133bf">В сети — {friends.length}</div>
-                      </div>
-                      <div className="tabBarItem__133bf" role="tab" aria-selected="false" tabIndex={0}>
-                        <div className="item__133bf">Все</div>
-                      </div>
-                      <div className="tabBarItem__133bf" role="tab" aria-selected="false" tabIndex={0}>
-                        <div className="item__133bf">Ожидание</div>
-                      </div>
-                      <div className="tabBarItem__133bf" role="tab" aria-selected="false" tabIndex={0}>
-                        <div className="item__133bf">Заблокированные</div>
-                      </div>
+              <div className="peopleList__cc6179" role="list" aria-label="Друзья">
+                {friends.length === 0 ? (
+                  <div className="emptyState__cc6179">
+                    <div className="emptyStateImage__cc6179">
+                      <svg className="image__cc6179" aria-hidden="true" role="img" xmlns="http://www.w3.org/2000/svg" width="376" height="162" fill="none" viewBox="0 0 376 162">
+                        <path fill="currentColor" d="M0 0h376v162H0z" opacity=".1"></path>
+                        <path fill="currentColor" d="M188 81c-20.5 0-37-16.5-37-37s16.5-37 37-37 37 16.5 37 37-16.5 37-37 37Zm0-55c-11.6 0-21 9.4-21 21s9.4 21 21 21 21-9.4 21-21-9.4-21-21-21Z"></path>
+                        <path fill="currentColor" d="M188 162c-41.4 0-75-33.6-75-75 0-8.3 6.7-15 15-15s15 6.7 15 15c0 24.8 20.2 45 45 45s45-20.2 45-45c0-8.3 6.7-15 15-15s15 6.7 15 15c0 41.4-33.6 75-75 75Z"></path>
+                      </svg>
+                    </div>
+                    <div className="emptyStateText__cc6179">
+                      У вас нет друзей, которые сейчас в сети.
                     </div>
                   </div>
-                </div>
-                <div className="friendsTableBody__133bf">
-                  <div className="scroller__133bf">
-                    <div className="content__133bf">
-                      {friends.length === 0 ? (
-                        <div className="emptyState__133bf">
-                          <div className="emptyStateImage__133bf">
-                            <svg className="image__133bf" aria-hidden="true" role="img" xmlns="http://www.w3.org/2000/svg" width="376" height="162" fill="none" viewBox="0 0 376 162">
-                              <path fill="currentColor" d="M0 0h376v162H0z" opacity=".1"></path>
-                              <path fill="currentColor" d="M188 81c-20.5 0-37-16.5-37-37s16.5-37 37-37 37 16.5 37 37-16.5 37-37 37Zm0-55c-11.6 0-21 9.4-21 21s9.4 21 21 21 21-9.4 21-21-9.4-21-21-21Z"></path>
-                              <path fill="currentColor" d="M188 162c-41.4 0-75-33.6-75-75 0-8.3 6.7-15 15-15s15 6.7 15 15c0 24.8 20.2 45 45 45s45-20.2 45-45c0-8.3 6.7-15 15-15s15 6.7 15 15c0 41.4-33.6 75-75 75Z"></path>
+                ) : (
+                  friends.map((friend) => (
+                    <div key={friend.id} className="peopleListItem__cc6179" role="listitem" tabIndex={-1}>
+                      <div className="listItemContents__fc004c">
+                        <div className="userInfo__0a06e">
+                          <div className="wrapper__44b0c avatar__0a06e" role="img" aria-label={`${friend.profiles?.username}, В сети`} aria-hidden="false">
+                            <svg width="40" height="40" viewBox="0 0 40 40" className="mask__44b0c svg__44b0c" aria-hidden="true">
+                              <foreignObject x="0" y="0" width="32" height="32" mask="url(#svg-mask-avatar-status-round-32)">
+                                <div className="avatarStack__44b0c">
+                                  <img alt=" " className="avatar__44b0c" aria-hidden="true" src={friend.profiles?.avatar_url || '/default-avatar.png'} />
+                                </div>
+                              </foreignObject>
+                              <rect width="10" height="10" x="22" y="22" fill="#43a25a" mask="url(#svg-mask-status-online)" className="pointerEvents__44b0c"></rect>
                             </svg>
                           </div>
-                          <div className="emptyStateText__133bf">
-                            У вас нет друзей, которые сейчас в сети.
+                          <div className="text__0a06e">
+                            <div className="info__f4bc97 discordTag__0a06e alignPomelo__0a06e">
+                              <span className="username__0a06e">{friend.profiles?.username}</span>
+                            </div>
+                            <div className="subtext__0a06e">
+                              <div className="text__19b6d">В сети</div>
+                            </div>
                           </div>
                         </div>
-                      ) : (
-                        <div className="friendsTableList__133bf">
-                          {friends.map((friend) => (
-                            <div key={friend.id} className="friendsTableRow__133bf">
-                              <div className="friendsTableRowInner__133bf">
-                                <div className="avatar__133bf">
-                                  <img src={friend.profiles?.avatar_url || '/default-avatar.png'} alt={friend.profiles?.username} />
-                                </div>
-                                <div className="name__133bf">
-                                  <div className="discriminator__133bf">{friend.profiles?.username}</div>
-                                </div>
-                                <div className="actions__133bf">
-                                  <button className="actionButton__133bf">Сообщение</button>
-                                  <button className="actionButton__133bf">Ещё</button>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
+                        <div className="actions__fc004c">
+                          <div className="actionButton__f8fa06" aria-label="Сообщение" role="button" tabIndex={0}>
+                            <svg className="icon__f8fa06" aria-hidden="true" role="img" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+                              <path fill="currentColor" d="M12 22a10 10 0 1 0-8.45-4.64c.13.19.11.44-.04.61l-2.06 2.37A1 1 0 0 0 2.2 22H12Z"></path>
+                            </svg>
+                          </div>
+                          <div className="actionButton__f8fa06" aria-label="Ещё" role="button" tabIndex={0}>
+                            <svg className="icon__f8fa06" aria-hidden="true" role="img" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+                              <path fill="currentColor" fillRule="evenodd" d="M10 4a2 2 0 1 0 4 0 2 2 0 0 0-4 0Zm2 10a2 2 0 1 1 0-4 2 2 0 0 1 0 4Zm0 8a2 2 0 1 1 0-4 2 2 0 0 1 0 4Z" clipRule="evenodd"></path>
+                            </svg>
+                          </div>
                         </div>
-                      )}
+                      </div>
                     </div>
-                  </div>
-                </div>
+                  ))
+                )}
               </div>
             </div>
           </div>
