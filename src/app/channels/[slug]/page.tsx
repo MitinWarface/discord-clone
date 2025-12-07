@@ -11,6 +11,7 @@ export default function ChannelsMePage() {
   const [friends, setFriends] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState('online');
   const [showAddServer, setShowAddServer] = useState(false);
+  const [showCreateOwn, setShowCreateOwn] = useState(false);
   const [serverName, setServerName] = useState('');
 
   useEffect(() => {
@@ -241,7 +242,7 @@ export default function ChannelsMePage() {
 
       {/* Add Server Modal */}
       {showAddServer && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 flex items-center justify-center z-50">
           <div className="bg-gray-800 rounded-lg p-6 w-[480px] max-h-[600px] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-2xl font-bold">Создать сервер</h3>
@@ -257,7 +258,13 @@ export default function ChannelsMePage() {
 
             <div className="space-y-4">
               {/* Create My Own */}
-              <div className="bg-gray-700 rounded-lg p-4 hover:bg-gray-600 cursor-pointer transition-colors">
+              <div
+                className="bg-gray-700 rounded-lg p-4 hover:bg-gray-600 cursor-pointer transition-colors"
+                onClick={() => {
+                  setShowAddServer(false);
+                  setShowCreateOwn(true);
+                }}
+              >
                 <div className="flex items-center space-x-4">
                   <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center">
                     <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
@@ -306,6 +313,85 @@ export default function ChannelsMePage() {
               <p className="text-xs text-gray-400 text-center">
                 Создавая сервер, вы соглашаетесь с <a href="#" className="text-blue-400 hover:underline">Правилами сообщества</a>
               </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Own Server Modal */}
+      {showCreateOwn && (
+        <div className="fixed inset-0 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-lg p-6 w-[440px]">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold">Расскажите о вашем сервере</h3>
+              <button
+                onClick={() => {
+                  setShowCreateOwn(false);
+                  setShowAddServer(true);
+                }}
+                className="text-gray-400 hover:text-white"
+              >
+                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M18.3 5.71a.996.996 0 0 0-1.41 0L12 10.59 7.11 5.7A.996.996 0 1 0 5.7 7.11L10.59 12 5.7 16.89a.996.996 0 1 0 1.41 1.41L12 13.41l4.89 4.89a.996.996 0 1 0 1.41-1.41L13.41 12l4.89-4.89c.38-.39.38-1.02 0-1.4z"/>
+                </svg>
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              {/* Server Icon Upload */}
+              <div className="flex flex-col items-center">
+                <div className="w-20 h-20 bg-gray-700 rounded-full flex items-center justify-center mb-4 cursor-pointer hover:bg-gray-600 transition-colors">
+                  <svg className="w-8 h-8 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                  </svg>
+                </div>
+                <button className="text-blue-400 hover:text-blue-300 text-sm">
+                  Загрузить изображение
+                </button>
+              </div>
+
+              {/* Server Name */}
+              <div>
+                <label className="block text-sm font-medium mb-2">НАЗВАНИЕ СЕРВЕРА</label>
+                <input
+                  type="text"
+                  placeholder="Название сервера"
+                  value={serverName}
+                  onChange={(e) => setServerName(e.target.value)}
+                  className="w-full px-3 py-2 bg-gray-700 text-white rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <p className="text-xs text-gray-400 mt-1">
+                  Создавая сервер, вы соглашаетесь с <a href="#" className="text-blue-400 hover:underline">Правилами сообщества</a>
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-between mt-8">
+              <button
+                onClick={() => {
+                  setShowCreateOwn(false);
+                  setShowAddServer(true);
+                }}
+                className="px-4 py-2 text-gray-300 hover:text-white"
+              >
+                Назад
+              </button>
+              <button
+                onClick={() => {
+                  // TODO: Create server logic
+                  alert(`Сервер "${serverName}" создан!`);
+                  setServerName('');
+                  setShowCreateOwn(false);
+                }}
+                className={`px-4 py-2 rounded ${
+                  serverName.trim()
+                    ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                    : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                }`}
+                disabled={!serverName.trim()}
+              >
+                Создать
+              </button>
             </div>
           </div>
         </div>
