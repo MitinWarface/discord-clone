@@ -12,24 +12,31 @@ export default function ChannelsMePage() {
   const [activeTab, setActiveTab] = useState('online');
 
   useEffect(() => {
-    document.title = 'Discord | Личные сообщения';
-
-    const getFriends = async () => {
+    const checkAuth = async () => {
       const { data: { user } } = await supabase!.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        router.push('/login');
+        return;
+      }
 
-      const { data, error } = await supabase!
-        .from('friends')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('status', 'accepted');
+      document.title = 'Discord | Личные сообщения';
 
-      if (error) console.error('Error fetching friends:', error);
-      else setFriends(data || []);
+      const getFriends = async () => {
+        const { data, error } = await supabase!
+          .from('friends')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('status', 'accepted');
+
+        if (error) console.error('Error fetching friends:', error);
+        else setFriends(data || []);
+      };
+
+      getFriends();
     };
 
-    getFriends();
-  }, []);
+    checkAuth();
+  }, [router]);
 
   const filteredFriends = friends.filter(friend => {
     if (activeTab === 'online') return true; // Assume all are online for now

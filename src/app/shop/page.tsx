@@ -1,14 +1,26 @@
 'use client'
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
 
 export default function ShopPage() {
   const router = useRouter();
+  const [activeCategory, setActiveCategory] = useState('nitro');
 
   useEffect(() => {
-    document.title = 'Discord | Магазин';
-  }, []);
+    const checkAuth = async () => {
+      const { data: { user } } = await supabase!.auth.getUser();
+      if (!user) {
+        router.push('/login');
+        return;
+      }
+
+      document.title = 'Discord | Магазин';
+    };
+
+    checkAuth();
+  }, [router]);
 
   return (
     <div className="h-screen bg-gray-900 text-white flex">
@@ -73,20 +85,136 @@ export default function ShopPage() {
         </div>
         <div className="flex-1 overflow-y-auto">
           <div className="p-4">
-            <div className="text-center py-20">
-              <h2 className="text-2xl font-bold mb-4">Discord Nitro</h2>
-              <p className="text-gray-300 mb-8">Получите премиум возможности Discord</p>
-              <div className="bg-gray-800 rounded-lg p-6 max-w-md mx-auto">
-                <h3 className="text-lg font-semibold mb-4">Nitro Classic</h3>
-                <ul className="text-sm text-gray-300 space-y-2 mb-6">
-                  <li>• Кастомные эмодзи везде</li>
-                  <li>• HD видео</li>
-                  <li>• Увеличенный лимит загрузки</li>
-                </ul>
-                <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded">
-                  Купить за $4.99/месяц
-                </button>
-              </div>
+            {/* Categories */}
+            <div className="flex space-x-1 mb-6">
+              <button
+                onClick={() => setActiveCategory('nitro')}
+                className={`px-4 py-2 rounded-t text-sm font-medium ${
+                  activeCategory === 'nitro' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-gray-300'
+                }`}
+              >
+                Nitro
+              </button>
+              <button
+                onClick={() => setActiveCategory('emoji')}
+                className={`px-4 py-2 rounded-t text-sm font-medium ${
+                  activeCategory === 'emoji' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-gray-300'
+                }`}
+              >
+                Эмодзи
+              </button>
+              <button
+                onClick={() => setActiveCategory('stickers')}
+                className={`px-4 py-2 rounded-t text-sm font-medium ${
+                  activeCategory === 'stickers' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-gray-300'
+                }`}
+              >
+                Стикеры
+              </button>
+              <button
+                onClick={() => setActiveCategory('boosts')}
+                className={`px-4 py-2 rounded-t text-sm font-medium ${
+                  activeCategory === 'boosts' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-gray-300'
+                }`}
+              >
+                Бусты
+              </button>
+            </div>
+
+            {/* Products */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {activeCategory === 'nitro' && (
+                <>
+                  <div className="bg-gray-800 rounded-lg p-6 hover:bg-gray-700 transition-colors">
+                    <div className="w-16 h-16 bg-yellow-500 rounded-lg flex items-center justify-center mb-4 mx-auto">
+                      <span className="text-2xl">⚡</span>
+                    </div>
+                    <h3 className="text-lg font-semibold mb-2 text-center">Nitro Classic</h3>
+                    <p className="text-sm text-gray-300 mb-4 text-center">Месячная подписка на Nitro</p>
+                    <div className="text-center mb-4">
+                      <span className="text-2xl font-bold">$4.99</span>
+                      <span className="text-gray-400">/месяц</span>
+                    </div>
+                    <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded">
+                      Купить
+                    </button>
+                  </div>
+                  <div className="bg-gray-800 rounded-lg p-6 hover:bg-gray-700 transition-colors">
+                    <div className="w-16 h-16 bg-purple-500 rounded-lg flex items-center justify-center mb-4 mx-auto">
+                      <span className="text-2xl">💎</span>
+                    </div>
+                    <h3 className="text-lg font-semibold mb-2 text-center">Nitro</h3>
+                    <p className="text-sm text-gray-300 mb-4 text-center">Полная подписка на Nitro</p>
+                    <div className="text-center mb-4">
+                      <span className="text-2xl font-bold">$9.99</span>
+                      <span className="text-gray-400">/месяц</span>
+                    </div>
+                    <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded">
+                      Купить
+                    </button>
+                  </div>
+                </>
+              )}
+              {activeCategory === 'emoji' && (
+                <>
+                  <div className="bg-gray-800 rounded-lg p-6 hover:bg-gray-700 transition-colors">
+                    <div className="w-16 h-16 bg-red-500 rounded-lg flex items-center justify-center mb-4 mx-auto">
+                      <span className="text-3xl">😀</span>
+                    </div>
+                    <h3 className="text-lg font-semibold mb-2 text-center">Смайлики Pack</h3>
+                    <p className="text-sm text-gray-300 mb-4 text-center">Набор веселых эмодзи</p>
+                    <div className="text-center mb-4">
+                      <span className="text-2xl font-bold">$2.99</span>
+                    </div>
+                    <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded">
+                      Купить
+                    </button>
+                  </div>
+                  <div className="bg-gray-800 rounded-lg p-6 hover:bg-gray-700 transition-colors">
+                    <div className="w-16 h-16 bg-blue-500 rounded-lg flex items-center justify-center mb-4 mx-auto">
+                      <span className="text-3xl">🚀</span>
+                    </div>
+                    <h3 className="text-lg font-semibold mb-2 text-center">Космос Pack</h3>
+                    <p className="text-sm text-gray-300 mb-4 text-center">Эмодзи космической тематики</p>
+                    <div className="text-center mb-4">
+                      <span className="text-2xl font-bold">$3.99</span>
+                    </div>
+                    <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded">
+                      Купить
+                    </button>
+                  </div>
+                </>
+              )}
+              {activeCategory === 'stickers' && (
+                <div className="bg-gray-800 rounded-lg p-6 hover:bg-gray-700 transition-colors">
+                  <div className="w-16 h-16 bg-green-500 rounded-lg flex items-center justify-center mb-4 mx-auto">
+                    <span className="text-3xl">🎨</span>
+                  </div>
+                  <h3 className="text-lg font-semibold mb-2 text-center">Арт Стикеры</h3>
+                  <p className="text-sm text-gray-300 mb-4 text-center">Креативные стикеры для чата</p>
+                  <div className="text-center mb-4">
+                    <span className="text-2xl font-bold">$1.99</span>
+                  </div>
+                  <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded">
+                    Купить
+                  </button>
+                </div>
+              )}
+              {activeCategory === 'boosts' && (
+                <div className="bg-gray-800 rounded-lg p-6 hover:bg-gray-700 transition-colors">
+                  <div className="w-16 h-16 bg-pink-500 rounded-lg flex items-center justify-center mb-4 mx-auto">
+                    <span className="text-3xl">🚀</span>
+                  </div>
+                  <h3 className="text-lg font-semibold mb-2 text-center">Буст сервера</h3>
+                  <p className="text-sm text-gray-300 mb-4 text-center">Улучшите ваш сервер</p>
+                  <div className="text-center mb-4">
+                    <span className="text-2xl font-bold">$4.99</span>
+                  </div>
+                  <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded">
+                    Купить
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

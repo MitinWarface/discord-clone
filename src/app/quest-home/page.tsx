@@ -2,13 +2,24 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
 
 export default function QuestHomePage() {
   const router = useRouter();
 
   useEffect(() => {
-    document.title = 'Discord | Задания';
-  }, []);
+    const checkAuth = async () => {
+      const { data: { user } } = await supabase!.auth.getUser();
+      if (!user) {
+        router.push('/login');
+        return;
+      }
+
+      document.title = 'Discord | Задания';
+    };
+
+    checkAuth();
+  }, [router]);
 
   return (
     <div className="h-screen bg-gray-900 text-white flex">

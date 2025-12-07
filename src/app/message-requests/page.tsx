@@ -1,4 +1,4 @@
-'use client'
+с'use client'
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -9,24 +9,31 @@ export default function MessageRequestsPage() {
   const [requests, setRequests] = useState<any[]>([]);
 
   useEffect(() => {
-    document.title = 'Discord | Запросы общения';
-
-    const getRequests = async () => {
+    const checkAuth = async () => {
       const { data: { user } } = await supabase!.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        router.push('/login');
+        return;
+      }
 
-      const { data, error } = await supabase!
-        .from('friends')
-        .select('*')
-        .eq('friend_id', user.id)
-        .eq('status', 'pending');
+      document.title = 'Discord | Запросы общения';
 
-      if (error) console.error('Error fetching requests:', error);
-      else setRequests(data || []);
+      const getRequests = async () => {
+        const { data, error } = await supabase!
+          .from('friends')
+          .select('*')
+          .eq('friend_id', user.id)
+          .eq('status', 'pending');
+
+        if (error) console.error('Error fetching requests:', error);
+        else setRequests(data || []);
+      };
+
+      getRequests();
     };
 
-    getRequests();
-  }, []);
+    checkAuth();
+  }, [router]);
 
   const acceptRequest = async (requestId: string) => {
     const { error } = await supabase!

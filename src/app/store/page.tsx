@@ -2,13 +2,24 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
 
 export default function StorePage() {
   const router = useRouter();
 
   useEffect(() => {
-    document.title = 'Discord | Магазин';
-  }, []);
+    const checkAuth = async () => {
+      const { data: { user } } = await supabase!.auth.getUser();
+      if (!user) {
+        router.push('/login');
+        return;
+      }
+
+      document.title = 'Discord | Магазин';
+    };
+
+    checkAuth();
+  }, [router]);
 
   return (
     <div className="h-screen bg-gray-900 text-white flex">
