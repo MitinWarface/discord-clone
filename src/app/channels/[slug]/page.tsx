@@ -26,7 +26,6 @@ export default function ChannelsMePage() {
   }, []);
 
   return (
-  return (
     <>
       <Head>
         <link rel="stylesheet" href="/discord.css" />
