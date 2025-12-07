@@ -4,13 +4,13 @@
 -- =========================================
 
 -- Включение RLS (Row Level Security)
-ALTER DATABASE postgres SET "app.jwt_secret" TO 'your-jwt-secret';
+-- ALTER DATABASE postgres SET "app.jwt_secret" TO 'your-jwt-secret'; -- Только для админа
 
 -- =========================================
 -- 1. Таблица профилей пользователей
 -- =========================================
 
-CREATE TABLE user_profiles (
+CREATE TABLE profiles (
   id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
   username TEXT UNIQUE NOT NULL,
   display_name TEXT NOT NULL,
@@ -21,18 +21,22 @@ CREATE TABLE user_profiles (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- RLS для user_profiles
-ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
+-- RLS для profiles
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 
--- Политики для user_profiles
-CREATE POLICY "Users can view all profiles" ON user_profiles
+-- Политики для profiles
+CREATE POLICY "Users can view all profiles" ON profiles
   FOR SELECT USING (true);
 
-CREATE POLICY "Users can update own profile" ON user_profiles
+CREATE POLICY "Users can update own profile" ON profiles
   FOR UPDATE USING (auth.uid() = id);
 
-CREATE POLICY "Users can insert own profile" ON user_profiles
+CREATE POLICY "Users can insert own profile" ON profiles
   FOR INSERT WITH CHECK (auth.uid() = id);
+
+-- Политика для триггера (service role может вставлять)
+CREATE POLICY "Service role can insert profiles" ON profiles
+  FOR INSERT WITH CHECK (auth.role() = 'service_role');
 
 -- =========================================
 -- 2. Таблица друзей
@@ -242,13 +246,35 @@ CREATE INDEX idx_server_members_user_id ON server_members(user_id);
 -- Триггер для автоматического создания профиля пользователя
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
+DECLARE
+  user_username TEXT;
+  user_display_name TEXT;
 BEGIN
-  INSERT INTO public.user_profiles (id, username, display_name)
-  VALUES (NEW.id, NEW.raw_user_meta_data->>'username', NEW.raw_user_meta_data->>'display_name');
+  -- Получаем данные из meta или используем email
+  user_username := COALESCE(NEW.raw_user_meta_data->>'username', split_part(NEW.email, '@', 1));
+  user_display_name := COALESCE(NEW.raw_user_meta_data->>'display_name', user_username);
+
+  -- Проверяем уникальность username
+  IF EXISTS (SELECT 1 FROM profiles WHERE username = user_username) THEN
+    user_username := user_username || '_' || substr(NEW.id::text, 1, 4);
+  END IF;
+
+  -- Вставляем профиль
+  INSERT INTO public.profiles (id, username, display_name)
+  VALUES (NEW.id, user_username, user_display_name);
+
   RETURN NEW;
+EXCEPTION
+  WHEN OTHERS THEN
+    -- Fallback: создаем профиль с гарантированно уникальным username
+    INSERT INTO public.profiles (id, username, display_name)
+    VALUES (NEW.id, 'user_' || substr(NEW.id::text, 1, 8), 'User')
+    ON CONFLICT (id) DO NOTHING;
+    RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
@@ -262,8 +288,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER update_user_profiles_updated_at
-  BEFORE UPDATE ON user_profiles
+CREATE TRIGGER update_profiles_updated_at
+  BEFORE UPDATE ON profiles
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_orders_updated_at
@@ -295,17 +321,10 @@ INSERT INTO products (name, description, price, category, image_url) VALUES
 
 -- Тестовые профили пользователей (для поиска)
 -- В реальном приложении пользователи создаются через auth
-INSERT INTO user_profiles (id, username, display_name, avatar_url, xp, level) VALUES
-('00000000-0000-0000-0000-000000000001', 'user123', 'User 123', '/default-avatar.png', 150, 2),
-('00000000-0000-0000-0000-000000000002', 'gamer_pro', 'Gamer Pro', '/default-avatar.png', 300, 3),
-('00000000-0000-0000-0000-000000000003', 'discord_fan', 'Discord Fan', '/default-avatar.png', 75, 1),
-('00000000-0000-0000-0000-000000000004', 'test_user', 'Test User', '/default-avatar.png', 200, 2),
-('00000000-0000-0000-0000-000000000005', 'dev_master', 'Dev Master', '/default-avatar.png', 500, 4),
-('00000000-0000-0000-0000-000000000006', 'code_ninja', 'Code Ninja', '/default-avatar.png', 400, 3),
-('00000000-0000-0000-0000-000000000007', 'pixel_artist', 'Pixel Artist', '/default-avatar.png', 250, 2),
-('00000000-0000-0000-0000-000000000008', 'music_lover', 'Music Lover', '/default-avatar.png', 180, 2),
-('00000000-0000-0000-0000-000000000009', 'game_dev', 'Game Developer', '/default-avatar.png', 350, 3),
-('00000000-0000-0000-0000-000000000010', 'artist_pro', 'Artist Pro', '/default-avatar.png', 280, 2);
+-- Раскомментируйте и замените на реальные user ID после создания пользователей:
+-- INSERT INTO profiles (id, username, display_name, avatar_url, xp, level) VALUES
+-- ('real-user-id-1', 'user123', 'User 123', '/default-avatar.png', 150, 2),
+-- ('real-user-id-2', 'gamer_pro', 'Gamer Pro', '/default-avatar.png', 300, 3);
 
 -- Функция для создания тестовых заданий (вызывать после регистрации пользователя)
 CREATE OR REPLACE FUNCTION create_default_quests(user_uuid UUID)
@@ -335,14 +354,14 @@ RETURNS TABLE (
 BEGIN
   RETURN QUERY
   SELECT
-    up.id,
-    up.username,
-    up.display_name,
-    up.avatar_url
-  FROM user_profiles up
+    p.id,
+    p.username,
+    p.display_name,
+    p.avatar_url
+  FROM profiles p
   WHERE
-    up.username ILIKE '%' || search_term || '%' OR
-    up.display_name ILIKE '%' || search_term || '%'
+    p.username ILIKE '%' || search_term || '%' OR
+    p.display_name ILIKE '%' || search_term || '%'
   LIMIT 10;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -360,13 +379,13 @@ BEGIN
   SELECT
     COUNT(DISTINCT CASE WHEN f.status = 'accepted' THEN f.friend_id END) as friends_count,
     COUNT(DISTINCT CASE WHEN uq.completed THEN uq.id END) as quests_completed,
-    COALESCE(up.xp, 0) as total_xp,
-    COALESCE(up.level, 1) as current_level
-  FROM user_profiles up
+    COALESCE(p.xp, 0) as total_xp,
+    COALESCE(p.level, 1) as current_level
+  FROM profiles p
   LEFT JOIN friends f ON (f.user_id = user_uuid OR f.friend_id = user_uuid) AND f.status = 'accepted'
   LEFT JOIN user_quests uq ON uq.user_id = user_uuid AND uq.completed = TRUE
-  WHERE up.id = user_uuid
-  GROUP BY up.xp, up.level;
+  WHERE p.id = user_uuid
+  GROUP BY p.xp, p.level;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
@@ -381,7 +400,7 @@ GRANT SELECT ON servers TO anon;
 
 -- Установка прав для аутентифицированных пользователей
 GRANT USAGE ON SCHEMA public TO authenticated;
-GRANT ALL ON user_profiles TO authenticated;
+GRANT ALL ON profiles TO authenticated;
 GRANT ALL ON friends TO authenticated;
 GRANT ALL ON orders TO authenticated;
 GRANT ALL ON order_items TO authenticated;
@@ -405,5 +424,6 @@ GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO authenticated;
 -- Тестовые запросы:
 -- SELECT * FROM products WHERE is_active = true;
 -- SELECT * FROM search_users('test');
+-- SELECT * FROM profiles LIMIT 5;
 
 COMMIT;

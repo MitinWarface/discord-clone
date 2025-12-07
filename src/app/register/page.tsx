@@ -50,21 +50,8 @@ export default function RegisterPage() {
       if (error) {
         setError(error.message)
       } else if (data.user) {
-        // Создать профиль в таблице profiles
-        const { error: profileError } = await supabase!
-          .from('profiles')
-          .upsert({
-            id: data.user.id,
-            username,
-            email,
-          })
-
-        if (profileError) {
-          console.error('Ошибка создания профиля:', profileError)
-          setError('Аккаунт создан, но произошла ошибка при создании профиля')
-        } else {
-          router.push('/login?message=Вы прошли регистрацию. Теперь авторизуйтесь.')
-        }
+        // Профиль создается автоматически триггером в базе данных
+        router.push('/login?message=Вы прошли регистрацию. Теперь авторизуйтесь.')
       }
     } catch (err) {
       setError('Произошла ошибка при регистрации')
