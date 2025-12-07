@@ -364,7 +364,7 @@ export default function ChannelsMePage() {
                   <div key={friend.id} className="flex items-center p-3 rounded hover:bg-gray-700 transition-colors">
                     <div className="relative mr-3">
                       <img
-                        src={'/default-avatar.png'}
+                        src={'/assets/66e90ab9506850e8a5dd48e3_Discrod_MainLogo.svg'}
                         alt={friend.friend_id}
                         className="w-8 h-8 rounded-full"
                       />
@@ -399,7 +399,7 @@ export default function ChannelsMePage() {
             <div className="flex items-center p-2 rounded hover:bg-gray-700 cursor-pointer transition-colors">
               <div className="relative mr-3">
                 <img
-                  src={userProfile.avatar_url || '/default-avatar.png'}
+                  src={userProfile.avatar_url || '/assets/66e90ab9506850e8a5dd48e3_Discrod_MainLogo.svg'}
                   alt={userProfile.display_name}
                   className="w-8 h-8 rounded-full"
                 />
@@ -410,7 +410,7 @@ export default function ChannelsMePage() {
                   {userProfile.display_name}
                 </div>
                 <div className="text-gray-400 text-xs truncate">
-                  {userProfile.username}
+                  {userProfile.username}#{userProfile.discriminator.toString().padStart(4, '0')}
                 </div>
               </div>
               <div className="flex space-x-1">
@@ -440,7 +440,7 @@ export default function ChannelsMePage() {
             <div key={friend.id} className="flex items-center p-2 rounded hover:bg-gray-700 cursor-pointer">
               <div className="relative mr-3">
                 <img
-                  src={'/default-avatar.png'}
+                  src={'/assets/66e90ab9506850e8a5dd48e3_Discrod_MainLogo.svg'}
                   alt={friend.friend_id}
                   className="w-6 h-6 rounded-full"
                 />

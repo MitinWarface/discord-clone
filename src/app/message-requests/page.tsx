@@ -164,7 +164,7 @@ export default function MessageRequestsPage() {
               <div className="flex items-center p-2 rounded hover:bg-gray-700 cursor-pointer transition-colors">
                 <div className="relative mr-3">
                   <img
-                    src={userProfile.avatar_url || '/default-avatar.png'}
+                    src={userProfile.avatar_url || '/assets/66e90ab9506850e8a5dd48e3_Discrod_MainLogo.svg'}
                     alt={userProfile.display_name}
                     className="w-8 h-8 rounded-full"
                   />
@@ -175,7 +175,7 @@ export default function MessageRequestsPage() {
                     {userProfile.display_name}
                   </div>
                   <div className="text-gray-400 text-xs truncate">
-                    {userProfile.username}
+                    {userProfile.username}#{userProfile.discriminator.toString().padStart(4, '0')}
                   </div>
                 </div>
                 <div className="flex space-x-1">
@@ -218,7 +218,7 @@ export default function MessageRequestsPage() {
                   <div key={request.id} className="flex items-center p-3 rounded hover:bg-gray-700 transition-colors">
                     <div className="relative mr-3">
                       <img
-                        src={'/default-avatar.png'}
+                        src={'/assets/66e90ab9506850e8a5dd48e3_Discrod_MainLogo.svg'}
                         alt={request.user_id}
                         className="w-8 h-8 rounded-full"
                       />
