@@ -1,13 +1,10 @@
 'use client'
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 
-export default function StorePage() {
-  const router = useRouter();
-
+export default function QuestHomePage() {
   useEffect(() => {
-    document.title = 'Discord | Магазин';
+    document.title = 'Discord | Задания';
   }, []);
 
   return (
@@ -27,7 +24,7 @@ export default function StorePage() {
       {/* Channels Sidebar */}
       <div className="w-60 bg-gray-800 flex flex-col">
         <div className="p-4 border-b border-gray-700">
-          <h2 className="text-sm font-semibold text-gray-300">Магазин</h2>
+          <h2 className="text-sm font-semibold text-gray-300">Задания</h2>
         </div>
         <div className="flex-1 overflow-y-auto">
           <div className="p-2 space-y-1">
@@ -44,23 +41,23 @@ export default function StorePage() {
               </svg>
               <span className="text-gray-300">Запросы общения</span>
             </div>
-            <div className="flex items-center p-2 rounded bg-yellow-500 text-white cursor-pointer">
-              <svg className="w-6 h-6 text-white mr-3" fill="currentColor" viewBox="0 0 24 24">
+            <div className="flex items-center p-2 rounded hover:bg-gray-700 cursor-pointer">
+              <svg className="w-6 h-6 text-yellow-400 mr-3" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
               </svg>
-              <span>Nitro</span>
+              <span className="text-gray-300">Nitro</span>
+            </div>
+            <div className="flex items-center p-2 rounded hover:bg-gray-700 cursor-pointer">
+              <svg className="w-6 h-6 text-gray-400 mr-3" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M7 4V2C7 1.45 6.55 1 6 1S5 1.45 5 2v2H4c-.55 0-1 .45-1 1s.45 1 1 1h1v10c0 1.1.9 2 2 2h6c1.1 0 2-.9 2-2V6h1c.55 0 1-.45 1-1s-.45-1-1-1h-1V4c0-.55-.45-1-1-1s-1 .45-1 1v2H7z"/>
+              </svg>
+              <span className="text-gray-300">Магазин</span>
             </div>
             <div className="flex items-center p-2 rounded bg-gray-700 text-white cursor-pointer">
               <svg className="w-6 h-6 text-white mr-3" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M7 4V2C7 1.45 6.55 1 6 1S5 1.45 5 2v2H4c-.55 0-1 .45-1 1s.45 1 1 1h1v10c0 1.1.9 2 2 2h6c1.1 0 2-.9 2-2V6h1c.55 0 1-.45 1-1s-.45-1-1-1h-1V4c0-.55-.45-1-1-1s-1 .45-1 1v2H7z"/>
-              </svg>
-              <span>Магазин</span>
-            </div>
-            <div className="flex items-center p-2 rounded hover:bg-gray-700 cursor-pointer" onClick={() => router.push('/quest-home')}>
-              <svg className="w-6 h-6 text-gray-400 mr-3" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
               </svg>
-              <span className="text-gray-300">Задания</span>
+              <span>Задания</span>
             </div>
           </div>
         </div>
@@ -69,23 +66,30 @@ export default function StorePage() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
         <div className="p-4 border-b border-gray-700">
-          <h1 className="text-xl font-semibold">Магазин</h1>
+          <h1 className="text-xl font-semibold">Задания</h1>
         </div>
         <div className="flex-1 overflow-y-auto">
           <div className="p-4">
             <div className="text-center py-20">
-              <h2 className="text-2xl font-bold mb-4">Discord Nitro</h2>
-              <p className="text-gray-300 mb-8">Получите премиум возможности Discord</p>
-              <div className="bg-gray-800 rounded-lg p-6 max-w-md mx-auto">
-                <h3 className="text-lg font-semibold mb-4">Nitro Classic</h3>
-                <ul className="text-sm text-gray-300 space-y-2 mb-6">
-                  <li>• Кастомные эмодзи везде</li>
-                  <li>• HD видео</li>
-                  <li>• Увеличенный лимит загрузки</li>
-                </ul>
-                <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded">
-                  Купить за $4.99/месяц
-                </button>
+              <h2 className="text-2xl font-bold mb-4">Ежедневные задания</h2>
+              <p className="text-gray-300 mb-8">Выполняйте задания и получайте награды</p>
+              <div className="space-y-4 max-w-md mx-auto">
+                <div className="bg-gray-800 rounded-lg p-4">
+                  <h3 className="text-lg font-semibold mb-2">Пригласить друга</h3>
+                  <p className="text-sm text-gray-300 mb-4">Пригласите 1 друга в Discord</p>
+                  <div className="w-full bg-gray-700 rounded-full h-2 mb-2">
+                    <div className="bg-blue-600 h-2 rounded-full" style={{ width: '0%' }}></div>
+                  </div>
+                  <p className="text-xs text-gray-400">0/1 выполнено</p>
+                </div>
+                <div className="bg-gray-800 rounded-lg p-4">
+                  <h3 className="text-lg font-semibold mb-2">Отправить сообщение</h3>
+                  <p className="text-sm text-gray-300 mb-4">Отправьте 10 сообщений</p>
+                  <div className="w-full bg-gray-700 rounded-full h-2 mb-2">
+                    <div className="bg-blue-600 h-2 rounded-full" style={{ width: '50%' }}></div>
+                  </div>
+                  <p className="text-xs text-gray-400">5/10 выполнено</p>
+                </div>
               </div>
             </div>
           </div>
@@ -95,10 +99,10 @@ export default function StorePage() {
       {/* Right Panel */}
       <div className="w-60 bg-gray-800 border-l border-gray-700 flex flex-col">
         <div className="p-4 border-b border-gray-700">
-          <h2 className="text-sm font-semibold text-gray-300">Рекомендации</h2>
+          <h2 className="text-sm font-semibold text-gray-300">Прогресс</h2>
         </div>
         <div className="flex-1 overflow-y-auto p-2">
-          {/* Placeholder for recommendations */}
+          {/* Placeholder for progress */}
         </div>
       </div>
     </div>

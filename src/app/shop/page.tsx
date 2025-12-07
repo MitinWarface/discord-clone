@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
-export default function StorePage() {
+export default function ShopPage() {
   const router = useRouter();
 
   useEffect(() => {
@@ -44,11 +44,11 @@ export default function StorePage() {
               </svg>
               <span className="text-gray-300">Запросы общения</span>
             </div>
-            <div className="flex items-center p-2 rounded bg-yellow-500 text-white cursor-pointer">
-              <svg className="w-6 h-6 text-white mr-3" fill="currentColor" viewBox="0 0 24 24">
+            <div className="flex items-center p-2 rounded hover:bg-gray-700 cursor-pointer">
+              <svg className="w-6 h-6 text-yellow-400 mr-3" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
               </svg>
-              <span>Nitro</span>
+              <span className="text-gray-300">Nitro</span>
             </div>
             <div className="flex items-center p-2 rounded bg-gray-700 text-white cursor-pointer">
               <svg className="w-6 h-6 text-white mr-3" fill="currentColor" viewBox="0 0 24 24">
