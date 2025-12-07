@@ -56,7 +56,6 @@ BEGIN
     DROP TRIGGER IF EXISTS update_servers_updated_at ON servers;
     DROP TRIGGER IF EXISTS update_channels_updated_at ON channels;
     DROP TRIGGER IF EXISTS update_messages_updated_at ON messages;
-    DROP TRIGGER IF EXISTS update_reactions_updated_at ON reactions;
 EXCEPTION
     WHEN OTHERS THEN
         -- Игнорируем ошибки
@@ -307,30 +306,27 @@ CREATE POLICY "Server members can view channels" ON channels
 CREATE POLICY "Server admins can insert channels" ON channels
   FOR INSERT WITH CHECK (
     EXISTS (
-      SELECT 1 FROM server_members sm
-      WHERE sm.server_id = channels.server_id
-      AND sm.user_id = auth.uid()
-      AND sm.role IN ('admin', 'owner')
+      SELECT 1 FROM servers s
+      WHERE s.id = channels.server_id
+      AND s.owner_id = auth.uid()
     )
   );
 
 CREATE POLICY "Server admins can update channels" ON channels
   FOR UPDATE USING (
     EXISTS (
-      SELECT 1 FROM server_members sm
-      WHERE sm.server_id = channels.server_id
-      AND sm.user_id = auth.uid()
-      AND sm.role IN ('admin', 'owner')
+      SELECT 1 FROM servers s
+      WHERE s.id = channels.server_id
+      AND s.owner_id = auth.uid()
     )
   );
 
 CREATE POLICY "Server admins can delete channels" ON channels
   FOR DELETE USING (
     EXISTS (
-      SELECT 1 FROM server_members sm
-      WHERE sm.server_id = channels.server_id
-      AND sm.user_id = auth.uid()
-      AND sm.role IN ('admin', 'owner')
+      SELECT 1 FROM servers s
+      WHERE s.id = channels.server_id
+      AND s.owner_id = auth.uid()
     )
   );
 
@@ -348,6 +344,19 @@ CREATE TABLE messages (
   edited_at TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- =========================================
+-- 11. Таблица реакций
+-- =========================================
+
+CREATE TABLE reactions (
+  id SERIAL PRIMARY KEY,
+  message_id INTEGER REFERENCES messages(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  emoji TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(message_id, user_id, emoji)
 );
 
 -- RLS для messages
@@ -375,6 +384,34 @@ CREATE POLICY "Server members can send messages" ON messages
 
 CREATE POLICY "Users can edit their messages" ON messages
   FOR UPDATE USING (auth.uid() = user_id);
+
+-- RLS для reactions
+ALTER TABLE reactions ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Server members can view reactions" ON reactions
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM server_members sm
+      JOIN channels c ON c.server_id = sm.server_id
+      JOIN messages m ON m.channel_id = c.id
+      WHERE m.id = reactions.message_id
+      AND sm.user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Server members can add reactions" ON reactions
+  FOR INSERT WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM server_members sm
+      JOIN channels c ON c.server_id = sm.server_id
+      JOIN messages m ON m.channel_id = c.id
+      WHERE m.id = reactions.message_id
+      AND sm.user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Users can remove their reactions" ON reactions
+  FOR DELETE USING (auth.uid() = user_id);
 
 -- =========================================
 -- 11. Таблица реакций
@@ -464,6 +501,8 @@ CREATE INDEX idx_channels_server_id ON channels(server_id);
 CREATE INDEX idx_messages_channel_id ON messages(channel_id);
 CREATE INDEX idx_messages_user_id ON messages(user_id);
 CREATE INDEX idx_messages_created_at ON messages(created_at);
+CREATE INDEX idx_reactions_message_id ON reactions(message_id);
+CREATE INDEX idx_reactions_user_id ON reactions(user_id);
 CREATE INDEX idx_reactions_message_id ON reactions(message_id);
 CREATE INDEX idx_reactions_user_id ON reactions(user_id);
 CREATE INDEX idx_reactions_emoji ON reactions(emoji);
@@ -674,9 +713,11 @@ GRANT ALL ON server_members TO authenticated;
 GRANT ALL ON channels TO authenticated;
 GRANT ALL ON messages TO authenticated;
 GRANT ALL ON reactions TO authenticated;
+GRANT ALL ON reactions TO authenticated;
 
 -- Sequence permissions
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO authenticated;
+GRANT USAGE, SELECT ON reactions_id_seq TO authenticated;
 
 -- =========================================
 -- ПРОВЕРКА НАСТРОЙКИ

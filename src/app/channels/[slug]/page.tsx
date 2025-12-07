@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import toast from 'react-hot-toast';
 import ReactMarkdown from 'react-markdown';
 
 export default function ChannelsMePage() {
@@ -353,7 +354,7 @@ export default function ChannelsMePage() {
 
       // Prevent sending request to yourself
       if (user.id === userId) {
-        alert('Вы не можете добавить себя в друзья!');
+        toast.error('Вы не можете добавить себя в друзья!');
         return;
       }
 
@@ -362,10 +363,10 @@ export default function ChannelsMePage() {
         .from('friends')
         .select('*')
         .or(`and(user_id.eq.${user.id},friend_id.eq.${userId}),and(user_id.eq.${userId},friend_id.eq.${user.id})`)
-        .single();
+        .maybeSingle();
 
       if (existingRequest) {
-        alert('Запрос уже отправлен или вы уже друзья!');
+        toast.error('Запрос уже отправлен или вы уже друзья!');
         return;
       }
 
@@ -380,9 +381,9 @@ export default function ChannelsMePage() {
 
       if (error) {
         console.error('Error sending friend request:', error);
-        alert('Ошибка при отправке запроса');
+        toast.error('Ошибка при отправке запроса');
       } else {
-        alert('Запрос в друзья отправлен!');
+        toast.success('Запрос в друзья отправлен!');
         setSearchQuery('');
         setSearchResults([]);
       }
@@ -410,7 +411,7 @@ export default function ChannelsMePage() {
 
       if (error) {
         console.error('Error sending message:', error);
-        alert('Ошибка при отправке сообщения');
+        toast.error('Ошибка при отправке сообщения');
       } else {
         setNewMessage('');
       }
@@ -1129,7 +1130,7 @@ export default function ChannelsMePage() {
 
                     if (serverError) {
                       console.error('Error creating server:', serverError);
-                      alert('Ошибка при создании сервера');
+                      toast.error('Ошибка при создании сервера');
                       return;
                     }
 
@@ -1165,7 +1166,7 @@ export default function ChannelsMePage() {
                       // Continue anyway
                     }
 
-                    alert(`Сервер "${serverName}" создан!`);
+                    toast.success(`Сервер "${serverName}" создан!`);
                     setServerName('');
                     setShowCreateOwn(false);
 
@@ -1191,7 +1192,7 @@ export default function ChannelsMePage() {
                     router.push(`/channels/${server.id}`);
                   } catch (error) {
                     console.error('Error:', error);
-                    alert('Ошибка при создании сервера');
+                    toast.error('Ошибка при создании сервера');
                   }
                 }}
                 className={`px-4 py-2 rounded ${
