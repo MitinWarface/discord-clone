@@ -31,7 +31,12 @@ export default function ShopPage() {
         const response = await fetch(`/api/products?category=${activeCategory}`);
         if (response.ok) {
           const data = await response.json();
-          setProducts(data);
+          if (data.length > 0) {
+            setProducts(data);
+          } else {
+            // Use static data if DB is empty
+            setProducts(getStaticProducts(activeCategory));
+          }
         } else {
           // Fallback to static data if API fails
           setProducts(getStaticProducts(activeCategory));
