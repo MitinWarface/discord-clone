@@ -1,6 +1,5 @@
 'use client'
 
-import Head from 'next/head';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
@@ -26,11 +25,7 @@ export default function ChannelsMePage() {
   }, []);
 
   return (
-    <>
-      <Head>
-        <link rel="stylesheet" href="/discord.css" />
-      </Head>
-      <main className="container__133bf" aria-label="Друзья">
+    <main className="container__133bf" aria-label="Друзья">
       <section className="theme-dark theme-midnight images-dark container__9293f themed__9293f" aria-labelledby="uid_31" role="navigation">
         <div className="upperContainer__9293f">
           <div className="children__9293f scrollable__9293f themed__9293f">
@@ -130,6 +125,5 @@ export default function ChannelsMePage() {
         </div>
       </div>
     </main>
-    </>
   )
 }
