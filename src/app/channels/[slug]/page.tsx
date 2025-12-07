@@ -14,7 +14,7 @@ export default function ChannelsMePage() {
 
       const { data, error } = await supabase!
         .from('friends')
-        .select('*, profiles!inner(id, username, avatar_url)')
+        .select('*')
         .eq('user_id', user.id)
         .eq('status', 'accepted');
 
@@ -124,14 +124,14 @@ export default function ChannelsMePage() {
                   <div key={friend.id} className="flex items-center p-3 rounded hover:bg-gray-700 transition-colors">
                     <div className="relative mr-3">
                       <img
-                        src={friend.profiles?.avatar_url || '/default-avatar.png'}
-                        alt={friend.profiles?.username}
+                        src={'/default-avatar.png'}
+                        alt={friend.friend_id}
                         className="w-8 h-8 rounded-full"
                       />
                       <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-gray-800"></div>
                     </div>
                     <div className="flex-1">
-                      <div className="text-white font-medium">{friend.profiles?.username}</div>
+                      <div className="text-white font-medium">{friend.friend_id}</div>
                       <div className="text-gray-400 text-sm">В сети</div>
                     </div>
                     <div className="flex space-x-2">
@@ -164,13 +164,13 @@ export default function ChannelsMePage() {
             <div key={friend.id} className="flex items-center p-2 rounded hover:bg-gray-700 cursor-pointer">
               <div className="relative mr-3">
                 <img
-                  src={friend.profiles?.avatar_url || '/default-avatar.png'}
-                  alt={friend.profiles?.username}
+                  src={'/default-avatar.png'}
+                  alt={friend.friend_id}
                   className="w-6 h-6 rounded-full"
                 />
                 <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-green-500 rounded-full border border-gray-800"></div>
               </div>
-              <span className="text-gray-300 text-sm truncate">{friend.profiles?.username}</span>
+              <span className="text-gray-300 text-sm truncate">{friend.friend_id}</span>
             </div>
           ))}
         </div>

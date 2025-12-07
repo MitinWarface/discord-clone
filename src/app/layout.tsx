@@ -25,9 +25,6 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <link rel="stylesheet" href="/discord-shared.css" />
-        <link rel="stylesheet" href="/discord.css" />
-        <link rel="stylesheet" href="/styles.css" />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
