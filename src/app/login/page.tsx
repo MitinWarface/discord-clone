@@ -45,7 +45,7 @@ export default function LoginPage() {
         setError(error.message)
       } else {
         setSuccessMessage('Вы успешно вошли.')
-        setTimeout(() => router.push('/dashboard'), 2000)
+        setTimeout(() => router.push('/channels/@me'), 2000)
       }
     } catch (err) {
       setError('Произошла ошибка при входе')
