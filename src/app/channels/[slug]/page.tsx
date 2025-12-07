@@ -2,11 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import type { Metadata } from 'next';
-
-export const metadata: Metadata = {
-  title: 'Discord | Друзья',
-};
 
 export default function ChannelsMePage() {
   const [friends, setFriends] = useState<any[]>([]);
