@@ -4,18 +4,14 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
-export async function generateMetadata({ params }: { params: { slug: string } }) {
-  return {
-    title: params.slug === '@me' ? 'Discord | Друзья' : 'Discord',
-  };
-}
-
 export default function ChannelsMePage() {
   const { slug } = useParams();
   const [friends, setFriends] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState('online');
 
   useEffect(() => {
+    document.title = 'Discord | Друзья';
+
     const getFriends = async () => {
       const { data: { user } } = await supabase!.auth.getUser();
       if (!user) return;
