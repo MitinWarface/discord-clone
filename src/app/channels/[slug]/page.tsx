@@ -18,6 +18,9 @@ export default function ChannelsMePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searching, setSearching] = useState(false);
+  const [servers, setServers] = useState<any[]>([]);
+  const [serverChannels, setServerChannels] = useState<any[]>([]);
+  const [currentServer, setCurrentServer] = useState<any>(null);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -86,11 +89,63 @@ export default function ChannelsMePage() {
         else setFriends(data || []);
       };
 
+      const getServers = async () => {
+        const { data, error } = await supabase!
+          .from('server_members')
+          .select(`
+            server_id,
+            servers (
+              id,
+              name,
+              icon_url
+            )
+          `)
+          .eq('user_id', user.id);
+
+        if (error) console.error('Error fetching servers:', error);
+        else {
+          const serverList = data?.map(item => item.servers).filter(Boolean) || [];
+          setServers(serverList);
+        }
+      };
+
       getFriends();
+      getServers();
+
+      // If slug is a server ID, load server and channels
+      if (slug !== 'me') {
+        const loadServerData = async () => {
+          // Check if user is member of this server
+          const { data: membership } = await supabase!
+            .from('server_members')
+            .select('*, servers(*)')
+            .eq('server_id', slug)
+            .eq('user_id', user.id)
+            .single();
+
+          if (membership) {
+            setCurrentServer(membership.servers);
+
+            // Load channels
+            const { data: channels } = await supabase!
+              .from('channels')
+              .select('*')
+              .eq('server_id', slug)
+              .order('position');
+
+            setServerChannels(channels || []);
+          } else {
+            // Not a member, redirect to friends
+            router.push('/channels/me');
+          }
+        };
+
+        loadServerData();
+      }
     };
 
     checkAuth();
-  }, [router]);
+  }, [router, slug]);
 
   // Debounced search
   useEffect(() => {
@@ -202,10 +257,31 @@ export default function ChannelsMePage() {
         </div>
         {/* Separator */}
         <div className="w-8 h-0.5 bg-gray-600 rounded mb-2"></div>
+
+        {/* Servers */}
+        {servers.map((server) => (
+          <div
+            key={server.id}
+            className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-2 cursor-pointer transition-colors ${
+              slug === server.id ? 'bg-gray-600' : 'bg-gray-700 hover:bg-gray-600'
+            }`}
+            onClick={() => router.push(`/channels/${server.id}`)}
+            title={server.name}
+          >
+            {server.icon_url ? (
+              <img src={server.icon_url} alt={server.name} className="w-8 h-8 rounded-xl" />
+            ) : (
+              <span className="text-white font-bold text-sm">
+                {server.name.charAt(0).toUpperCase()}
+              </span>
+            )}
+          </div>
+        ))}
+
         {/* Add Server Button */}
         <div className="w-12 h-12 bg-gray-700 rounded-full flex items-center justify-center mb-2 cursor-pointer hover:bg-green-600 transition-colors" onClick={() => setShowAddServer(true)}>
           <svg className="w-6 h-6 text-green-400" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/>
+            <path d="M12 7V3H2v18h20V7H12zM6 19H4v-2h2v2zm0-4H4v-2h2v2zm0-4H4V9h2v2zm0-4H4V5h2v2zm4 12H8v-2h2v2zm0-4H8v-2h2v2zm0-4H8V9h2v2zm0-4H8V5h2v2zm10 12h-8v-2h2v-2h-2v-2h2v-2h-2V9h8v10zm-2-8h-2v2h2v-2zm0 4h-2v2h2v-2z"/>
           </svg>
         </div>
       </div>
@@ -214,42 +290,57 @@ export default function ChannelsMePage() {
       <div className="w-60 bg-gray-800 flex flex-col">
         <div className="p-4 border-b border-gray-700">
           <h2 className="text-sm font-semibold text-gray-300">
-            {pathname === '/channels/me' ? 'Друзья' : 'Друзья'}
+            {currentServer ? currentServer.name : 'Друзья'}
           </h2>
         </div>
         <div className="flex-1 overflow-y-auto">
           <div className="p-2 space-y-1">
-            <div className={`flex items-center p-2 rounded cursor-pointer ${pathname === '/channels/me' ? 'bg-gray-700 text-white' : 'hover:bg-gray-700'}`}>
-              <svg className={`w-6 h-6 mr-3 ${pathname === '/channels/me' ? 'text-white' : 'text-gray-400'}`} fill="currentColor" viewBox="0 0 24 24">
-                <path d="M13 10a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/>
-                <path d="M3 5v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2H5c-1.11 0-2 .9-2 2Zm12 10c0 1.66-1.34 3-3 3s-3-1.34-3-3 1.34-3 3-3 3 1.34 3 3Zm-9 4c0-.22.03-.42.06-.63C5.74 16.86 7.87 15 10 15s4.26 1.86 4.94 3.37c.03.2.06.41.06.63H6Zm8-7c0-.55-.45-1-1-1s-1 .45-1 1 .45 1 1 1 1-.45 1-1Z"/>
-              </svg>
-              <span className={pathname === '/channels/me' ? 'text-white' : 'text-gray-300'}>Друзья</span>
-            </div>
-            <div className={`flex items-center p-2 rounded cursor-pointer ${pathname === '/message-requests' ? 'bg-gray-700 text-white' : 'hover:bg-gray-700'}`} onClick={() => router.push('/message-requests')}>
-              <svg className={`w-6 h-6 mr-3 ${pathname === '/message-requests' ? 'text-white' : 'text-gray-400'}`} fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2Zm-1 15l-4-4 1.41-1.41L11 14.17l6.59-6.59L19 9l-8 8Z"/>
-              </svg>
-              <span className={pathname === '/message-requests' ? 'text-white' : 'text-gray-300'}>Запросы общения</span>
-            </div>
-            <div className="flex items-center p-2 rounded hover:bg-gray-700 cursor-pointer" onClick={() => router.push('/store')}>
-              <svg className="w-6 h-6 text-yellow-400 mr-3" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-              </svg>
-              <span className="text-gray-300">Nitro</span>
-            </div>
-            <div className="flex items-center p-2 rounded hover:bg-gray-700 cursor-pointer" onClick={() => router.push('/shop')}>
-              <svg className="w-6 h-6 text-gray-400 mr-3" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M7 4V2C7 1.45 6.55 1 6 1S5 1.45 5 2v2H4c-.55 0-1 .45-1 1s.45 1 1 1h1v10c0 1.1.9 2 2 2h6c1.1 0 2-.9 2-2V6h1c.55 0 1-.45 1-1s-.45-1-1-1h-1V4c0-.55-.45-1-1-1s-1 .45-1 1v2H7z"/>
-              </svg>
-              <span className="text-gray-300">Магазин</span>
-            </div>
-            <div className="flex items-center p-2 rounded hover:bg-gray-700 cursor-pointer" onClick={() => router.push('/quest-home')}>
-              <svg className="w-6 h-6 text-gray-400 mr-3" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
-              </svg>
-              <span className="text-gray-300">Задания</span>
-            </div>
+            {currentServer ? (
+              // Server channels
+              serverChannels.map((channel) => (
+                <div key={channel.id} className="flex items-center p-2 rounded hover:bg-gray-700 cursor-pointer">
+                  <svg className="w-6 h-6 mr-3 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2Zm-1 15l-4-4 1.41-1.41L11 14.17l6.59-6.59L19 9l-8 8Z"/>
+                  </svg>
+                  <span className="text-gray-300">#{channel.name}</span>
+                </div>
+              ))
+            ) : (
+              // Friends menu
+              <>
+                <div className={`flex items-center p-2 rounded cursor-pointer ${pathname === '/channels/me' ? 'bg-gray-700 text-white' : 'hover:bg-gray-700'}`}>
+                  <svg className={`w-6 h-6 mr-3 ${pathname === '/channels/me' ? 'text-white' : 'text-gray-400'}`} fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M13 10a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/>
+                    <path d="M3 5v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2H5c-1.11 0-2 .9-2 2Zm12 10c0 1.66-1.34 3-3 3s-3-1.34-3-3 1.34-3 3-3 3 1.34 3 3Zm-9 4c0-.22.03-.42.06-.63C5.74 16.86 7.87 15 10 15s4.26 1.86 4.94 3.37c.03.2.06.41.06.63H6Zm8-7c0-.55-.45-1-1-1s-1 .45-1 1 .45 1 1 1 1-.45 1-1Z"/>
+                  </svg>
+                  <span className={pathname === '/channels/me' ? 'text-white' : 'text-gray-300'}>Друзья</span>
+                </div>
+                <div className={`flex items-center p-2 rounded cursor-pointer ${pathname === '/message-requests' ? 'bg-gray-700 text-white' : 'hover:bg-gray-700'}`} onClick={() => router.push('/message-requests')}>
+                  <svg className={`w-6 h-6 mr-3 ${pathname === '/message-requests' ? 'text-white' : 'text-gray-400'}`} fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2Zm-1 15l-4-4 1.41-1.41L11 14.17l6.59-6.59L19 9l-8 8Z"/>
+                  </svg>
+                  <span className={pathname === '/message-requests' ? 'text-white' : 'text-gray-300'}>Запросы общения</span>
+                </div>
+                <div className="flex items-center p-2 rounded hover:bg-gray-700 cursor-pointer" onClick={() => router.push('/store')}>
+                  <svg className="w-6 h-6 text-yellow-400 mr-3" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                  </svg>
+                  <span className="text-gray-300">Nitro</span>
+                </div>
+                <div className="flex items-center p-2 rounded hover:bg-gray-700 cursor-pointer" onClick={() => router.push('/shop')}>
+                  <svg className="w-6 h-6 text-gray-400 mr-3" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M7 4V2C7 1.45 6.55 1 6 1S5 1.45 5 2v2H4c-.55 0-1 .45-1 1s.45 1 1 1h1v10c0 1.1.9 2 2 2h6c1.1 0 2-.9 2-2V6h1c.55 0 1-.45 1-1s-.45-1-1-1h-1V4c0-.55-.45-1-1-1s-1 .45-1 1v2H7z"/>
+                  </svg>
+                  <span className="text-gray-300">Магазин</span>
+                </div>
+                <div className="flex items-center p-2 rounded hover:bg-gray-700 cursor-pointer" onClick={() => router.push('/quest-home')}>
+                  <svg className="w-6 h-6 text-gray-400 mr-3" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+                  </svg>
+                  <span className="text-gray-300">Задания</span>
+                </div>
+              </>
+            )}
           </div>
 
           {/* User Profile Panel */}
@@ -643,11 +734,92 @@ export default function ChannelsMePage() {
                 Назад
               </button>
               <button
-                onClick={() => {
-                  // TODO: Create server logic
-                  alert(`Сервер "${serverName}" создан!`);
-                  setServerName('');
-                  setShowCreateOwn(false);
+                onClick={async () => {
+                  if (!serverName.trim()) return;
+
+                  try {
+                    const { data: { user } } = await supabase!.auth.getUser();
+                    if (!user) return;
+
+                    // Create server
+                    const { data: server, error: serverError } = await supabase!
+                      .from('servers')
+                      .insert({
+                        name: serverName.trim(),
+                        owner_id: user.id,
+                        icon_url: null,
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString()
+                      })
+                      .select()
+                      .single();
+
+                    if (serverError) {
+                      console.error('Error creating server:', serverError);
+                      alert('Ошибка при создании сервера');
+                      return;
+                    }
+
+                    // Create default channel
+                    const { error: channelError } = await supabase!
+                      .from('channels')
+                      .insert({
+                        server_id: server.id,
+                        name: 'general',
+                        type: 'text',
+                        position: 0,
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString()
+                      });
+
+                    if (channelError) {
+                      console.error('Error creating channel:', channelError);
+                      // Continue anyway
+                    }
+
+                    // Add owner as member
+                    const { error: memberError } = await supabase!
+                      .from('server_members')
+                      .insert({
+                        server_id: server.id,
+                        user_id: user.id,
+                        role: 'owner',
+                        joined_at: new Date().toISOString()
+                      });
+
+                    if (memberError) {
+                      console.error('Error adding member:', memberError);
+                      // Continue anyway
+                    }
+
+                    alert(`Сервер "${serverName}" создан!`);
+                    setServerName('');
+                    setShowCreateOwn(false);
+
+                    // Refresh servers list
+                    const { data: updatedServers } = await supabase!
+                      .from('server_members')
+                      .select(`
+                        server_id,
+                        servers (
+                          id,
+                          name,
+                          icon_url
+                        )
+                      `)
+                      .eq('user_id', user.id);
+
+                    if (updatedServers) {
+                      const serverList = updatedServers.map(item => item.servers).filter(Boolean);
+                      setServers(serverList);
+                    }
+
+                    // Redirect to the new server
+                    router.push(`/channels/${server.id}`);
+                  } catch (error) {
+                    console.error('Error:', error);
+                    alert('Ошибка при создании сервера');
+                  }
                 }}
                 className={`px-4 py-2 rounded ${
                   serverName.trim()
